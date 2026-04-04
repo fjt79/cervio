@@ -1,36 +1,24 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FileText, ArrowLeft, Copy, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { FileText, ArrowLeft, Copy, ChevronDown, ChevronUp, Clock, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 interface UpdateSection { title: string; content: string }
-interface GeneratedUpdate {
-  subject: string
-  sections: UpdateSection[]
-  tldr: string
-  tone_notes: string
-}
-interface SavedUpdate {
-  id: string
-  period: string
-  update_type: string
-  content: GeneratedUpdate
-  created_at: string
-}
+interface GeneratedUpdate { subject: string; sections: UpdateSection[]; tldr: string; tone_notes: string }
+interface SavedUpdate { id: string; period: string; update_type: string; content: GeneratedUpdate; created_at: string }
 
 const UPDATE_TYPES = [
-  { value: 'board', label: 'Board Update', desc: 'Formal board/directors update' },
+  { value: 'board', label: 'Board Update', desc: 'Formal board update' },
   { value: 'investor', label: 'Investor Update', desc: 'Monthly investor email' },
   { value: 'monthly', label: 'Monthly Update', desc: 'General stakeholder update' },
 ]
-
 const TONE_OPTIONS = [
-  { value: 'confident', label: 'Confident & direct' },
-  { value: 'professional', label: 'Professional & formal' },
-  { value: 'transparent', label: 'Transparent & honest' },
-  { value: 'energetic', label: 'Energetic & exciting' },
+  { value: 'confident', label: 'Confident' },
+  { value: 'professional', label: 'Professional' },
+  { value: 'transparent', label: 'Transparent' },
+  { value: 'energetic', label: 'Energetic' },
 ]
 
 export default function BoardUpdatePage() {
@@ -38,19 +26,7 @@ export default function BoardUpdatePage() {
   const [past, setPast] = useState<SavedUpdate[]>([])
   const [loading, setLoading] = useState(false)
   const [expandedPast, setExpandedPast] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    period: '',
-    update_type: 'investor',
-    revenue_current: '',
-    revenue_previous: '',
-    revenue_target: '',
-    highlights: '',
-    challenges: '',
-    metrics: '',
-    the_ask: '',
-    next_period_plan: '',
-    tone: 'confident',
-  })
+  const [form, setForm] = useState({ period: '', update_type: 'investor', revenue_current: '', revenue_previous: '', revenue_target: '', highlights: '', challenges: '', metrics: '', the_ask: '', next_period_plan: '', tone: 'confident' })
 
   useEffect(() => { loadPast() }, [])
 
@@ -67,10 +43,7 @@ export default function BoardUpdatePage() {
   }
 
   const generate = async () => {
-    if (!form.highlights || !form.period) {
-      toast.error('Period and highlights are required')
-      return
-    }
+    if (!form.highlights || !form.period) { toast.error('Period and highlights are required'); return }
     setLoading(true)
     try {
       const headers = await getHeaders()
@@ -91,170 +64,149 @@ export default function BoardUpdatePage() {
     if (!generated) return
     const text = `${generated.subject}\n\nTL;DR: ${generated.tldr}\n\n${generated.sections.map(s => `${s.title}\n${s.content}`).join('\n\n')}`
     navigator.clipboard.writeText(text)
-    toast.success('Copied to clipboard!')
+    toast.success('Copied!')
   }
 
-  const update = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }))
-
-  const inputStyle = { width: '100%', background: '#1a1a24', border: '1px solid #2a2a3a', borderRadius: 10, padding: '10px 14px', color: '#e8e8f0', fontSize: 14, fontFamily: 'inherit', resize: 'vertical' as const }
-  const labelStyle = { fontSize: 11, color: '#6b6b80', marginBottom: 6, display: 'block', textTransform: 'uppercase' as const, letterSpacing: '1px', fontWeight: 600 }
+  const inp = { background: 'var(--surface2)', border: '0.5px solid var(--border)', borderRadius: 10, padding: '10px 12px', color: 'var(--text)', fontSize: 14, width: '100%', fontFamily: 'inherit' } as React.CSSProperties
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-muted hover:text-text text-sm mb-6 transition-colors">
-          <ArrowLeft size={14} />Back to Dashboard
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)', textDecoration: 'none', marginBottom: 16 }}>
+          <ArrowLeft size={13} />Dashboard
         </Link>
-        <h1 className="font-display text-3xl font-bold text-text mb-2">Board & Investor Updates</h1>
-        <p className="text-muted text-sm">Write a polished update in seconds. Fill in the details, Cervio writes it.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(90,200,250,0.12)', border: '0.5px solid rgba(90,200,250,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={18} style={{ color: 'var(--teal)' }} />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.5 }}>Board & Investor Updates</h1>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Write a polished update in seconds.</p>
+          </div>
+        </div>
       </div>
 
       {!generated ? (
-        <div className="card space-y-5">
+        <div style={{ background: 'var(--surface)', borderRadius: 16, border: '0.5px solid var(--border)', padding: 24, boxShadow: 'var(--shadow-sm)' }}>
           {/* Update type */}
-          <div>
-            <label style={labelStyle}>Update type</label>
-            <div className="grid grid-cols-3 gap-3">
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.8, display: 'block', marginBottom: 10 }}>Update Type</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {UPDATE_TYPES.map(t => (
-                <button key={t.value} onClick={() => update('update_type', t.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid', background: form.update_type === t.value ? 'rgba(201,169,110,0.12)' : '#1a1a24', borderColor: form.update_type === t.value ? 'rgba(201,169,110,0.4)' : '#2a2a3a', cursor: 'pointer', textAlign: 'left' as const }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: form.update_type === t.value ? '#c9a96e' : '#e8e8f0', marginBottom: 2 }}>{t.label}</div>
-                  <div style={{ fontSize: 11, color: '#6b6b80' }}>{t.desc}</div>
+                <button key={t.value} onClick={() => setForm(f => ({...f, update_type: t.value}))} style={{ padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${form.update_type === t.value ? 'var(--accent)' : 'var(--border)'}`, background: form.update_type === t.value ? 'var(--accent-light)' : 'var(--surface2)', cursor: 'pointer', textAlign: 'left' as const }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: form.update_type === t.value ? 'var(--accent)' : 'var(--text)', marginBottom: 2 }}>{t.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t.desc}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Period */}
-          <div>
-            <label style={labelStyle}>Period *</label>
-            <input value={form.period} onChange={e => update('period', e.target.value)} placeholder="e.g. Q1 2026 / March 2026" style={inputStyle} />
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>Period *</label>
+            <input value={form.period} onChange={e => setForm(f => ({...f, period: e.target.value}))} placeholder="e.g. Q1 2026 / March 2026" style={inp} />
           </div>
 
           {/* Revenue */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Current MRR/ARR</label>
-              <input value={form.revenue_current} onChange={e => update('revenue_current', e.target.value)} placeholder="e.g. $12,000 MRR" style={inputStyle} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+            {[['revenue_current','Current MRR/ARR','$12,000 MRR'],['revenue_previous','Previous Period','$9,500 MRR'],['revenue_target','Target','$15,000 MRR']].map(([key, label, ph]) => (
+              <div key={key}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>{label}</label>
+                <input value={(form as any)[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} placeholder={ph} style={inp} />
+              </div>
+            ))}
+          </div>
+
+          {/* Text areas */}
+          {[
+            ['highlights','Highlights & Wins *','What went well? Key wins, milestones, traction...', 4],
+            ['challenges','Challenges & Risks','What\'s hard right now? What risks are you managing?', 3],
+            ['metrics','Key Metrics','Churn, CAC, pipeline, NPS, burn rate...', 3],
+            ['next_period_plan','Next Period Plan','What are you focused on next quarter/month?', 3],
+          ].map(([key, label, ph, rows]) => (
+            <div key={key as string} style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>{label as string}</label>
+              <textarea value={(form as any)[key as string]} onChange={e => setForm(f => ({...f, [key as string]: e.target.value}))} placeholder={ph as string} rows={rows as number} style={{ ...inp, resize: 'vertical' as const }} />
             </div>
-            <div>
-              <label style={labelStyle}>Previous period</label>
-              <input value={form.revenue_previous} onChange={e => update('revenue_previous', e.target.value)} placeholder="e.g. $9,500 MRR" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Target</label>
-              <input value={form.revenue_target} onChange={e => update('revenue_target', e.target.value)} placeholder="e.g. $15,000 MRR" style={inputStyle} />
-            </div>
-          </div>
+          ))}
 
-          {/* Highlights */}
-          <div>
-            <label style={labelStyle}>Highlights & wins *</label>
-            <textarea value={form.highlights} onChange={e => update('highlights', e.target.value)} placeholder="What went well? Key wins, milestones, traction signals..." rows={4} style={inputStyle} />
-          </div>
-
-          {/* Challenges */}
-          <div>
-            <label style={labelStyle}>Challenges & risks</label>
-            <textarea value={form.challenges} onChange={e => update('challenges', e.target.value)} placeholder="What's hard right now? What risks are you managing?" rows={3} style={inputStyle} />
-          </div>
-
-          {/* Key metrics */}
-          <div>
-            <label style={labelStyle}>Key metrics</label>
-            <textarea value={form.metrics} onChange={e => update('metrics', e.target.value)} placeholder="Churn rate, CAC, pipeline, users, NPS, burn rate — whatever's relevant..." rows={3} style={inputStyle} />
-          </div>
-
-          {/* Next period */}
-          <div>
-            <label style={labelStyle}>Next period plan</label>
-            <textarea value={form.next_period_plan} onChange={e => update('next_period_plan', e.target.value)} placeholder="What are you focused on next quarter/month?" rows={3} style={inputStyle} />
-          </div>
-
-          {/* The ask */}
-          <div>
-            <label style={labelStyle}>The ask (optional)</label>
-            <input value={form.the_ask} onChange={e => update('the_ask', e.target.value)} placeholder="Introductions needed, advice sought, specific help required..." style={inputStyle} />
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.8, display: 'block', marginBottom: 6 }}>The Ask (optional)</label>
+            <input value={form.the_ask} onChange={e => setForm(f => ({...f, the_ask: e.target.value}))} placeholder="Introductions needed, advice sought..." style={inp} />
           </div>
 
           {/* Tone */}
-          <div>
-            <label style={labelStyle}>Tone</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 8 }}>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.8, display: 'block', marginBottom: 8 }}>Tone</label>
+            <div style={{ display: 'flex', gap: 8 }}>
               {TONE_OPTIONS.map(t => (
-                <button key={t.value} onClick={() => update('tone', t.value)} style={{ padding: '6px 14px', fontSize: 12, borderRadius: 20, border: '1px solid', background: form.tone === t.value ? 'rgba(201,169,110,0.12)' : 'transparent', borderColor: form.tone === t.value ? 'rgba(201,169,110,0.4)' : '#2a2a3a', color: form.tone === t.value ? '#c9a96e' : '#6b6b80', cursor: 'pointer' }}>
+                <button key={t.value} onClick={() => setForm(f => ({...f, tone: t.value}))} style={{ padding: '6px 16px', fontSize: 13, borderRadius: 20, border: `1.5px solid ${form.tone === t.value ? 'var(--accent)' : 'var(--border)'}`, background: form.tone === t.value ? 'var(--accent-light)' : 'transparent', color: form.tone === t.value ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: form.tone === t.value ? 600 : 400 }}>
                   {t.label}
                 </button>
               ))}
             </div>
           </div>
 
-          <button onClick={generate} disabled={loading} className="btn-primary" style={{ marginTop: 8 }}>
-            {loading ? <span className="flex items-center justify-center gap-2"><div className="spinner" />Generating your update...</span> : 'Generate Update'}
+          <button onClick={generate} disabled={loading} style={{ width: '100%', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 12, padding: '13px 0', fontSize: 15, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loading ? 0.7 : 1 }}>
+            {loading ? <><div className="spinner" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} />Generating your update...</> : <><Sparkles size={15} />Generate Update</>}
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* TL;DR */}
-          <div className="card" style={{ borderColor: 'rgba(201,169,110,0.3)', background: 'rgba(201,169,110,0.06)' }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#c9a96e', letterSpacing: 1.5, marginBottom: 8 }}>TL;DR</div>
-            <p style={{ fontSize: 14, color: '#e8e8f0', lineHeight: 1.6 }}>{generated.tldr}</p>
+          <div style={{ background: 'var(--accent-light)', border: '0.5px solid var(--accent)', borderRadius: 14, padding: '14px 18px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1.5, marginBottom: 6, textTransform: 'uppercase' as const }}>TL;DR</div>
+            <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{generated.tldr}</p>
           </div>
 
-          {/* Subject */}
+          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 20, color: '#e8e8f0', fontWeight: 700 }}>{generated.subject}</h2>
-            <button onClick={copyAll} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#c9a96e', background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
-              <Copy size={12} />Copy all
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3 }}>{generated.subject}</h2>
+            <button onClick={copyAll} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontWeight: 500 }}>
+              <Copy size={13} />Copy all
             </button>
           </div>
 
           {/* Sections */}
           {generated.sections.map((section, i) => (
-            <div key={i} className="card">
-              <h3 style={{ fontFamily: 'Georgia, serif', fontSize: 16, color: '#c9a96e', fontWeight: 700, marginBottom: 10 }}>{section.title}</h3>
-              <div style={{ fontSize: 14, color: '#c0c0cc', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{section.content}</div>
+            <div key={i} style={{ background: 'var(--surface)', borderRadius: 14, border: '0.5px solid var(--border)', padding: '18px 20px', boxShadow: 'var(--shadow-sm)' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginBottom: 10 }}>{section.title}</h3>
+              <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{section.content}</div>
             </div>
           ))}
 
-          {/* Actions */}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => setGenerated(null)} className="btn-secondary" style={{ flex: 1 }}>
-              Edit & Regenerate
-            </button>
-            <button onClick={copyAll} className="btn-primary" style={{ flex: 1 }}>
-              Copy to Clipboard
-            </button>
+            <button onClick={() => setGenerated(null)} style={{ flex: 1, background: 'var(--surface2)', color: 'var(--text)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Edit & Regenerate</button>
+            <button onClick={copyAll} style={{ flex: 1, background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 12, padding: '12px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Copy to Clipboard</button>
           </div>
         </div>
       )}
 
       {/* Past updates */}
       {past.length > 0 && (
-        <div className="mt-10">
-          <h2 className="font-display text-xl font-bold text-text mb-4">Past Updates</h2>
-          <div className="space-y-3">
+        <div style={{ marginTop: 40 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 14, letterSpacing: -0.3 }}>Past Updates</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {past.map(p => (
-              <div key={p.id} className="card">
-                <button onClick={() => setExpandedPast(expandedPast === p.id ? null : p.id)} className="w-full flex items-center justify-between">
+              <div key={p.id} style={{ background: 'var(--surface)', borderRadius: 12, border: '0.5px solid var(--border)', overflow: 'hidden' }}>
+                <button onClick={() => setExpandedPast(expandedPast === p.id ? null : p.id)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <FileText size={14} style={{ color: '#c9a96e' }} />
+                    <FileText size={14} style={{ color: 'var(--teal)' }} />
                     <div style={{ textAlign: 'left' as const }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: '#e8e8f0' }}>{p.content.subject}</div>
-                      <div style={{ fontSize: 11, color: '#6b6b80', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                        <Clock size={10} />
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{p.content.subject}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {p.period} · {new Date(p.created_at).toLocaleDateString('en-AU')}
-                        <span style={{ background: '#1a1a24', border: '1px solid #2a2a3a', borderRadius: 20, padding: '1px 8px', marginLeft: 4 }}>{p.update_type}</span>
+                        <span style={{ background: 'var(--surface2)', border: '0.5px solid var(--border)', borderRadius: 20, padding: '1px 8px' }}>{p.update_type}</span>
                       </div>
                     </div>
                   </div>
-                  {expandedPast === p.id ? <ChevronUp size={14} style={{ color: '#6b6b80' }} /> : <ChevronDown size={14} style={{ color: '#6b6b80' }} />}
+                  {expandedPast === p.id ? <ChevronUp size={14} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-tertiary)' }} />}
                 </button>
                 {expandedPast === p.id && (
-                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #2a2a3a' }}>
-                    <p style={{ fontSize: 13, color: '#6b6b80', marginBottom: 10 }}>{p.content.tldr}</p>
-                    <button onClick={() => { setGenerated(p.content); window.scrollTo(0, 0) }} style={{ fontSize: 12, color: '#c9a96e', background: 'rgba(201,169,110,0.1)', border: '1px solid rgba(201,169,110,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>
-                      View full update →
-                    </button>
+                  <div style={{ padding: '0 16px 14px', borderTop: '0.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '12px 0 10px' }}>{p.content.tldr}</p>
+                    <button onClick={() => { setGenerated(p.content); window.scrollTo(0,0) }} style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 500 }}>View full update →</button>
                   </div>
                 )}
               </div>
