@@ -650,14 +650,14 @@ export default function LandingPage() {
         .footer-links a:hover { color: rgba(255,255,255,0.55); }
 
         /* ── REVEAL ───────────────────────────────── */
-        .reveal {
-          opacity: 0; transform: translateY(28px);
+       .reveal {
+          opacity: 1; transform: translateY(0);
           transition: opacity 0.85s ease, transform 0.85s ease;
         }
         .reveal.in { opacity: 1; transform: translateY(0); }
 
         .reveal-slow {
-          opacity: 0; transform: translateY(20px);
+          opacity: 1; transform: translateY(0);
           transition: opacity 1.1s ease, transform 1.1s ease;
         }
         .reveal-slow.in { opacity: 1; transform: translateY(0); }
@@ -1046,17 +1046,24 @@ export default function LandingPage() {
       </footer>
 
       <script dangerouslySetInnerHTML={{__html:`
-        const io = new IntersectionObserver(entries => {
-          entries.forEach(e => {
-            if (e.isIntersecting) {
-              const d = parseFloat(e.target.style.transitionDelay || '0') * 1000
-              setTimeout(() => e.target.classList.add('in'), d)
-              io.unobserve(e.target)
-            }
-          })
-        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
-        document.querySelectorAll('.reveal, .reveal-slow').forEach(el => io.observe(el))
-      `}}/>
+  function initReveal() {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const d = parseFloat(e.target.style.transitionDelay || '0') * 1000
+          setTimeout(() => e.target.classList.add('in'), d)
+          io.unobserve(e.target)
+        }
+      })
+    }, { threshold: 0.08, rootMargin: '0px 0px -20px 0px' })
+    document.querySelectorAll('.reveal, .reveal-slow').forEach(el => io.observe(el))
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReveal)
+  } else {
+    initReveal()
+  }
+`}}/>
     </>
   )
 }
