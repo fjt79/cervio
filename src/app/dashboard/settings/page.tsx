@@ -410,7 +410,65 @@ export default function SettingsPage() {
               </div>
             </div>
             {profile?.subscription_plan === 'trial' ? (
-              <Link href="/dashboard/settings" style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}>Upgrade</Link>
+              {/* Current Plan */}
+<div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,149,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <CreditCard size={15} style={{ color: 'var(--warning)' }} />
+    </div>
+    <div>
+      <div style={{ fontSize: 15, color: 'var(--text)', fontWeight: 400 }}>Current Plan</div>
+      <div style={{ fontSize: 12, color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+        {profile?.subscription_plan === 'trial' ? 'Free Trial' : profile?.subscription_plan || 'Trial'}
+      </div>
+    </div>
+  </div>
+  {profile?.subscription_plan === 'trial' ? (
+    <button
+      onClick={async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          const res = await fetch('/api/billing/checkout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ plan: 'solo' }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error)
+          window.location.href = data.url
+        } catch (err: any) {
+          toast.error(err.message || 'Failed to open billing')
+        }
+      }}
+      style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 500 }}
+    >
+      Upgrade →
+    </button>
+  ) : (
+    <button
+      onClick={async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          const res = await fetch('/api/billing/portal', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session?.access_token}` },
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error)
+          window.location.href = data.url
+        } catch (err: any) {
+          toast.error(err.message || 'Failed to open billing portal')
+        }
+      }}
+      style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 500 }}
+    >
+      Manage billing →
+    </button>
+  )}
+</div>
             ) : (
               <button onClick={async () => {
                 const { data: { session } } = await supabase.auth.getSession()
