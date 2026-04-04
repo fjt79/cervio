@@ -15,17 +15,14 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-    // Fetch all context in parallel
-    const [profileRes, goalsRes, decisionsRes, riskAlertsRes, pendingDecisionsRes, healthRes, accountabilityRes, executionRes, stakeholdersRes] = await Promise.all([
+    const [profileRes, goalsRes, decisionsRes, riskAlertsRes, pendingDecisionsRes, healthRes, executionRes] = await Promise.all([
       supabaseAdmin.from('profiles').select('*').eq('id', user.id).single(),
       supabaseAdmin.from('goals').select('*').eq('user_id', user.id).eq('status', 'active').order('priority'),
       supabaseAdmin.from('decisions').select('id, title, created_at, analysis').eq('user_id', user.id).gte('created_at', thirtyDaysAgo.toISOString()).order('created_at', { ascending: false }),
       supabaseAdmin.from('risk_alerts').select('*').eq('user_id', user.id).eq('is_resolved', false).order('created_at', { ascending: false }),
       supabaseAdmin.from('decision_recommendations').select('*').eq('user_id', user.id).is('user_action', null).order('created_at', { ascending: false }),
       supabaseAdmin.from('business_health').select('*').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1).single(),
-      supabaseAdmin.from('accountability_log').select('*').eq('user_id', user.id).eq('log_date', now.toISOString().split('T')[0]).single(),
       supabaseAdmin.from('execution_actions').select('*').eq('user_id', user.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
-      supabaseAdmin.from('stakeholders').select('name, importance, last_contact_date, relationship_type').eq('user_id', user.id).order('importance', { ascending: false }).limit(10),
     ])
 
     return NextResponse.json({
@@ -35,9 +32,7 @@ export async function GET(request: NextRequest) {
       riskAlerts: riskAlertsRes.data || [],
       pendingDecisions: pendingDecisionsRes.data || [],
       businessHealth: healthRes.data,
-      todayLog: accountabilityRes.data,
       pendingActions: executionRes.data || [],
-      stakeholders: stakeholdersRes.data || [],
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
@@ -54,11 +49,9 @@ export async function POST(request: NextRequest) {
 
     const now = new Date()
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
-    // Load full context for AI analysis
-    const [profile, goals, decisions, meetings, reviews, stakeholders, existingAlerts, pendingDecisions] = await Promise.all([
-      supabaseAdmin.from('profiles').select('*').eq('id', user.id).single().then(r => r.data),
+    const [profileRes, goalsRes, decisionsRes, meetingsRes, reviewsRes, stakeholdersRes, existingAlertsRes, pendingDecisionsRes] = await Promise.all([
+      supabaseAdmin.from('profiles').select('*').eq('id', user.id).single(),
       supabaseAdmin.from('goals').select('*').eq('user_id', user.id).order('priority'),
       supabaseAdmin.from('decisions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       supabaseAdmin.from('meetings').select('*').eq('user_id', user.id).gte('created_at', sevenDaysAgo.toISOString()).order('created_at', { ascending: false }),
@@ -68,10 +61,19 @@ export async function POST(request: NextRequest) {
       supabaseAdmin.from('decision_recommendations').select('*').eq('user_id', user.id).is('user_action', null),
     ])
 
-    const activeGoals = (goals || []).filter((g: any) => g.status === 'active')
+    const profile = profileRes.data
+    const goals = goalsRes.data || []
+    const decisions = decisionsRes.data || []
+    const meetings = meetingsRes.data || []
+    const reviews = reviewsRes.data || []
+    const stakeholders = stakeholdersRes.data || []
+    const existingAlerts = existingAlertsRes.data || []
+    const pendingDecisions = pendingDecisionsRes.data || []
+
+    const activeGoals = goals.filter((g: any) => g.status === 'active')
     const avgProgress = activeGoals.length ? Math.round(activeGoals.reduce((a: number, g: any) => a + (g.current_progress || 0), 0) / activeGoals.length) : 0
     const overdueGoals = activeGoals.filter((g: any) => g.target_date && new Date(g.target_date) < now && (g.current_progress || 0) < 100)
-    const coldStakeholders = (stakeholders || []).filter((s: any) => {
+    const coldStakeholders = stakeholders.filter((s: any) => {
       if (!s.last_contact_date) return s.importance >= 4
       const daysSince = Math.floor((now.getTime() - new Date(s.last_contact_date).getTime()) / 86400000)
       return s.importance >= 4 && daysSince > 21
@@ -101,18 +103,14 @@ ${activeGoals.map((g: any) => `- "${g.title}": ${g.current_progress || 0}% compl
 OVERDUE GOALS: ${overdueGoals.length}
 AVG GOAL PROGRESS: ${avgProgress}%
 
-RECENT DECISIONS (${decisions?.length || 0}):
-${(decisions || []).slice(0, 5).map((d: any) => `- "${d.title}" (${new Date(d.created_at).toLocaleDateString('en-AU')})`).join('\n') || 'None'}
+RECENT DECISIONS (${decisions.length}):
+${decisions.slice(0, 5).map((d: any) => `- "${d.title}" (${new Date(d.created_at).toLocaleDateString('en-AU')})`).join('\n') || 'None'}
 
-PENDING DECISIONS AWAITING ACTION: ${pendingDecisions?.length || 0}
-
-MEETINGS THIS WEEK: ${meetings?.length || 0}
-
+PENDING DECISIONS AWAITING ACTION: ${pendingDecisions.length}
+MEETINGS THIS WEEK: ${meetings.length}
 COLD HIGH-VALUE RELATIONSHIPS: ${coldStakeholders.map((s: any) => s.name).join(', ') || 'None'}
-
 LAST WEEKLY REVIEW: ${reviews?.[0] ? `Score ${reviews[0].week_score}/100 (${reviews[0].content?.week_label})` : 'None yet'}
-
-EXISTING UNRESOLVED ALERTS: ${existingAlerts?.length || 0}
+EXISTING UNRESOLVED ALERTS: ${existingAlerts.length}
 
 Generate a complete command centre analysis. Return ONLY this exact JSON:
 
@@ -123,59 +121,47 @@ Generate a complete command centre analysis. Return ONLY this exact JSON:
     "execution_score": <0-100>,
     "team_score": <0-100>,
     "risk_score": <0-100>,
-    "score_direction": "<'up' | 'down' | 'stable'>",
-    "critical_factors": [
-      "<specific factor dragging the score>",
-      "<another factor>"
-    ],
-    "recommended_actions": [
-      "<specific action that would improve score>",
-      "<another action>"
-    ],
+    "critical_factors": ["<factor>", "<factor>"],
+    "recommended_actions": ["<action>", "<action>"],
     "projected_score_after_actions": <0-100>
   },
   "risk_alerts": [
     {
-      "alert_type": "<'revenue' | 'execution' | 'relationship' | 'deadline' | 'pattern'>",
-      "severity": "<'critical' | 'high' | 'medium'>",
-      "title": "<sharp, specific alert title — max 8 words>",
-      "description": "<2-3 sentences. Specific. Reference actual data. What is at risk and why it matters now>",
-      "recommended_action": "<one specific action to resolve this>",
-      "auto_action_available": <true|false>
+      "alert_type": "<revenue|execution|relationship|deadline|pattern>",
+      "severity": "<critical|high|medium>",
+      "title": "<max 8 words>",
+      "description": "<2-3 sentences, specific>",
+      "recommended_action": "<one specific action>",
+      "auto_action_available": false
     }
   ],
   "decision_recommendations": [
     {
       "title": "<specific decision title>",
-      "context": "<why this decision is needed now>",
-      "recommendation": "<'approve' | 'reject' | 'delay'>",
+      "context": "<why needed now>",
+      "recommendation": "<approve|reject|delay>",
       "confidence_score": <0-100>,
-      "reasoning": "<specific reasoning referencing their situation>",
+      "reasoning": "<specific reasoning>",
       "expected_impact_approve": "<what happens if approved>",
       "expected_impact_reject": "<what happens if rejected>",
-      "urgency": "<'critical' | 'high' | 'normal'>",
-      "consequence_label": "<e.g. 'Revenue at risk' | 'Relationship degrading' | 'Deadline approaching'>",
-      "auto_actions": [
-        {"type": "email_draft", "title": "<action title>", "description": "<what cervio will do>"}
-      ]
+      "urgency": "<critical|high|normal>",
+      "consequence_label": "<e.g. Revenue at risk>",
+      "auto_actions": []
     }
   ],
   "one_move": {
-    "title": "<the single most important action today — 1 sentence>",
-    "reasoning": "<why THIS is the one thing. Be direct and specific. Reference their actual situation>",
-    "time_required": "<e.g. '20 minutes' | '1 hour'>",
-    "impact": "<what changes if they do this today>"
+    "title": "<single most important action today>",
+    "reasoning": "<why this, specific to their situation>",
+    "time_required": "<e.g. 20 minutes>",
+    "impact": "<what changes if done today>"
   },
   "accountability": {
-    "avoidance_patterns": [
-      "<pattern you've detected — be honest and specific>"
-    ],
-    "pressure_message": "<1-2 sentences. Direct challenge. What are they avoiding and what is it costing them>"
+    "avoidance_patterns": ["<pattern>"],
+    "pressure_message": "<direct challenge, 1-2 sentences>"
   }
 }
 
-Be SPECIFIC to their actual situation. Reference real goals, real numbers, real patterns. Do not be generic.
-Return ONLY valid JSON. No markdown.`
+Be SPECIFIC. Reference real goals and real numbers. Return ONLY valid JSON.`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5',
@@ -201,23 +187,17 @@ Return ONLY valid JSON. No markdown.`
       snapshot_date: now.toISOString().split('T')[0],
     })
 
-    // Save risk alerts (clear old unresolved ones first for today)
+    // Save risk alerts
     if (analysis.risk_alerts?.length > 0) {
       await supabaseAdmin.from('risk_alerts').insert(
-        analysis.risk_alerts.map((alert: any) => ({
-          user_id: user.id,
-          ...alert,
-        }))
+        analysis.risk_alerts.map((alert: any) => ({ user_id: user.id, ...alert }))
       )
     }
 
     // Save decision recommendations
     if (analysis.decision_recommendations?.length > 0) {
       await supabaseAdmin.from('decision_recommendations').insert(
-        analysis.decision_recommendations.map((dec: any) => ({
-          user_id: user.id,
-          ...dec,
-        }))
+        analysis.decision_recommendations.map((dec: any) => ({ user_id: user.id, ...dec }))
       )
     }
 
