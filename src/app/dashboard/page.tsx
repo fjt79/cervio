@@ -637,12 +637,16 @@ export default function CommandCentrePage() {
       if (!id.startsWith('new-')) {
         await fetch(`/api/command-centre/decisions/${id}`, { method: 'PATCH', headers, body: JSON.stringify({ action }) })
       }
-      if (action !== 'delayed') {
+    if (action !== 'delayed') {
         const dec = pendingDecisions.find(d => d.id === id)
         if (dec) setResolvedDecisions(prev => [{ id, title: dec.title, action, date: new Date().toLocaleDateString('en-AU') }, ...prev])
         if (action === 'approved') {
-          // Update health score optimistically
           if (health) setHealth(h => h ? { ...h, overall_score: Math.min(100, h.overall_score + 5), execution_score: Math.min(100, h.execution_score + 8) } : h)
+          // Remove from pending after a short delay so card animation completes
+          setTimeout(() => setPendingDecisions(prev => prev.filter(d => d.id !== id)), 1500)
+        }
+        if (action === 'rejected') {
+          setTimeout(() => setPendingDecisions(prev => prev.filter(d => d.id !== id)), 800)
         }
       } else {
         setPendingDecisions(prev => prev.map(d => d.id === id ? { ...d, delay_count: (d.delay_count || 0) + 1 } : d))
@@ -726,7 +730,7 @@ export default function CommandCentrePage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {pendingDecisions.map(dec => (
-                  <DecisionCard key={dec.id} dec={dec} health={health} onAction={handleDecisionAction} />
+                  <DecisionCard key={`card-${dec.id}`} dec={dec} health={health} onAction={handleDecisionAction} />
                 ))}
               </div>
             )}
