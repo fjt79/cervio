@@ -199,7 +199,7 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {[
                 { href: '/dashboard/decisions/new', icon: Zap, label: 'New Decision', desc: 'Analyse a situation' },
-                { href: '/dashboard/meetings/new', icon: Calendar, label: 'Prep a Meeting', desc: 'Get a meeting brief' },
+                { href: '/dashboard/meetings', icon: Calendar, label: 'Prep a Meeting', desc: 'Get a meeting brief' },
                 { href: '/dashboard/goals', icon: Target, label: 'Review Goals', desc: 'Check your progress' },
               ].map(action => (
                 <Link key={action.href} href={action.href} className="card-hover flex items-center gap-3 p-3 group">
