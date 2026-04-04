@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase, Profile } from '@/lib/supabase'
 import {
   LayoutDashboard, Zap, Calendar, Target, Sparkles,
-  Settings, LogOut, Menu, X, ChevronRight
+  Settings, LogOut, Menu, X, ChevronRight, Star, FileText, Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +17,10 @@ const NAV_ITEMS = [
   { href: '/dashboard/coach', icon: Sparkles, label: 'Coach' },
   { href: '/dashboard/calendar', icon: Calendar, label: 'Calendar' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
+{ href: '/dashboard/weekly-review', icon: Star, label: 'Weekly Review' },
+{ href: '/dashboard/board-update', icon: FileText, label: 'Board Updates' },
+{ href: '/dashboard/ask-cervio', icon: Sparkles, label: 'Ask Cervio' },
+{ href: '/dashboard/stakeholders', icon: Users, label: 'Stakeholders' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
