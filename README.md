@@ -2,7 +2,7 @@
 
 > Think sharper. Decide faster. Lead better.
 
-Built by Freddy Elturk | Powered by Morphotech
+Built by Morphotech
 
 ---
 
