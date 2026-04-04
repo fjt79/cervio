@@ -1,3 +1,4 @@
+import { ThemeProvider } from '@/components/features/ThemeProvider'
 import type { Metadata } from 'next'
 import { Toaster } from 'react-hot-toast'
 import '../styles/globals.css'
@@ -19,26 +20,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body>
-        {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#1a1a24',
-              color: '#e8e8f0',
-              border: '1px solid #2a2a3a',
-              borderRadius: '12px',
-            },
-            success: { iconTheme: { primary: '#c9a96e', secondary: '#0a0a0f' } },
-            error: { iconTheme: { primary: '#f87171', secondary: '#0a0a0f' } },
-          }}
-        />
+        <ThemeProvider>
+          {children}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                border: '0.5px solid var(--border)',
+                borderRadius: '12px',
+                boxShadow: 'var(--shadow-md)',
+              },
+              success: { iconTheme: { primary: '#34C759', secondary: 'white' } },
+              error: { iconTheme: { primary: '#FF3B30', secondary: 'white' } },
+            }}
+          />
+        </ThemeProvider>
       </body>
     </html>
   )
