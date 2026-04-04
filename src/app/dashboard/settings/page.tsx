@@ -59,11 +59,15 @@ export default function SettingsPage() {
   const handleUpgrade = async (plan: string) => {
     setUpgradingPlan(plan)
     try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      })
+      const { data: { session } } = await supabase.auth.getSession()
+const res = await fetch('/api/billing/checkout', {
+  method: 'POST',
+  headers: { 
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${session?.access_token}`
+  },
+  body: JSON.stringify({ plan }),
+})
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       window.location.href = data.url

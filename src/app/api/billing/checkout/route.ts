@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { stripe, PLANS, createCheckoutSession, getOrCreateCustomer } from '@/lib/stripe'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { PLANS, createCheckoutSession, getOrCreateCustomer } from '@/lib/stripe'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { user } } = await supabase.auth.getUser()
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
     if (!user) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
     const { plan } = await request.json()
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cervio.ai'
     const session = await createCheckoutSession(customerId, planConfig.priceId, user.id, appUrl)
 
     return NextResponse.json({ url: session.url })
