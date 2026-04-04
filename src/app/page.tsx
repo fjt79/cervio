@@ -204,7 +204,7 @@ export default function LandingPage() {
         .s-bar-f { height: 100%; border-radius: 1px; animation: pbg 1.5s ease 1.8s both; }
 
         /* SECTIONS */
-        .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.85s ease, transform 0.85s ease; }
+        .reveal { opacity: 1; transform: translateY(0); transition: opacity 0.85s ease, transform 0.85s ease; }
         .reveal.in { opacity: 1; transform: translateY(0); }
 
         /* TENSION */
