@@ -5,6 +5,7 @@ import { getGreeting, formatDate } from '@/lib/utils'
 import { RefreshCw, ChevronRight, Zap, Calendar, Target, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import TodaySchedule from '@/components/features/TodaySchedule'
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -185,7 +186,7 @@ export default function DashboardPage() {
               <button onClick={generateBriefing} disabled={loadingBriefing} className="btn-primary mx-auto">
                 {loadingBriefing ? (
                   <span className="flex items-center gap-2"><div className="spinner" /> Generating...</span>
-                ) : 'Generate Today\'s Briefing'}
+                ) : "Generate Today's Briefing"}
               </button>
             </div>
           )}
@@ -193,6 +194,10 @@ export default function DashboardPage() {
 
         {/* Right column */}
         <div className="space-y-6">
+
+          {/* Today's Schedule */}
+          <TodaySchedule />
+
           {/* Quick actions */}
           <div>
             <h2 className="font-display text-xl font-bold mb-4">Quick Actions</h2>
@@ -246,6 +251,7 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
         </div>
       </div>
     </div>
