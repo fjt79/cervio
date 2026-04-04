@@ -34,8 +34,7 @@ export async function POST(request: NextRequest) {
     const session = await createCheckoutSession(customerId, planConfig.priceId, user.id, appUrl)
 
     return NextResponse.json({ url: session.url })
-  } catch (err: any) {
+} catch (err: any) {
     console.error('Checkout error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 })
   }
-}
