@@ -1,341 +1,506 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase, Profile, Goal, Briefing } from '@/lib/supabase'
-import { getGreeting } from '@/lib/utils'
-import { RefreshCw, ChevronRight, Zap, Calendar, Target, TrendingUp, Star, FileText, Users, Sparkles, CalendarDays, Clock, CheckCircle } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { RefreshCw, AlertTriangle, Zap, Target, TrendingUp, TrendingDown, ChevronRight, CheckCircle, XCircle, Clock, ArrowRight, Shield, Activity, Flame } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import TodaySchedule from '@/components/features/TodaySchedule'
 
-export default function DashboardPage() {
+// ─── Types ───────────────────────────────────────────────────
+
+interface BusinessHealth {
+  overall_score: number
+  revenue_score: number
+  execution_score: number
+  team_score: number
+  risk_score: number
+  critical_factors: string[]
+  recommended_actions: string[]
+  projected_score_after_actions: number
+}
+
+interface RiskAlert {
+  id: string
+  alert_type: string
+  severity: string
+  title: string
+  description: string
+  recommended_action: string
+  auto_action_available: boolean
+  created_at: string
+}
+
+interface DecisionRec {
+  id: string
+  title: string
+  context: string
+  recommendation: string
+  confidence_score: number
+  reasoning: string
+  expected_impact_approve: string
+  expected_impact_reject: string
+  urgency: string
+  consequence_label: string
+  delay_count: number
+  consequence_escalation: number
+  user_action: string | null
+  auto_actions: any[]
+}
+
+interface Profile {
+  full_name: string
+  business_name: string
+  subscription_plan: string
+}
+
+// ─── Sub-components ──────────────────────────────────────────
+
+function ScoreRing({ score, size = 80, color }: { score: number; size?: number; color: string }) {
+  const r = (size - 8) / 2
+  const circ = 2 * Math.PI * r
+  const offset = circ - (score / 100) * circ
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--surface3)" strokeWidth={6} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={6}
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        style={{ transition: 'stroke-dashoffset 1s ease' }} />
+    </svg>
+  )
+}
+
+function scoreColor(s: number) {
+  if (s >= 70) return 'var(--success)'
+  if (s >= 45) return 'var(--warning)'
+  return 'var(--danger)'
+}
+
+function severityColor(severity: string) {
+  if (severity === 'critical') return 'var(--danger)'
+  if (severity === 'high') return 'var(--warning)'
+  return 'var(--accent)'
+}
+
+function urgencyBadge(urgency: string, delayCount: number) {
+  if (delayCount >= 2) return { label: `Delayed ${delayCount}×`, color: 'var(--danger)', bg: 'var(--danger-bg)' }
+  if (urgency === 'critical') return { label: 'Critical', color: 'var(--danger)', bg: 'var(--danger-bg)' }
+  if (urgency === 'high') return { label: 'Urgent', color: 'var(--warning)', bg: 'var(--warning-bg)' }
+  return { label: 'Review', color: 'var(--accent)', bg: 'var(--accent-light)' }
+}
+
+function getGreeting(name?: string) {
+  const h = new Date().getHours()
+  const g = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  return name ? `${g}, ${name.split(' ')[0]}` : g
+}
+
+// ─── Decision Card ────────────────────────────────────────────
+
+function DecisionCard({ dec, onAction }: { dec: DecisionRec; onAction: (id: string, action: string) => void }) {
+  const [showDetail, setShowDetail] = useState(false)
+  const [overrideReason, setOverrideReason] = useState('')
+  const [acting, setActing] = useState(false)
+  const badge = urgencyBadge(dec.urgency, dec.delay_count || 0)
+
+  const recColor = dec.recommendation === 'approve' ? 'var(--success)' : dec.recommendation === 'reject' ? 'var(--danger)' : 'var(--warning)'
+  const recIcon = dec.recommendation === 'approve' ? '✓ APPROVE' : dec.recommendation === 'reject' ? '✗ REJECT' : '⏸ DELAY'
+
+  return (
+    <div style={{ background: 'var(--surface)', border: `1px solid ${dec.urgency === 'critical' ? 'rgba(255,59,48,0.3)' : 'var(--border)'}`, borderRadius: 14, overflow: 'hidden', boxShadow: dec.urgency === 'critical' ? '0 0 0 1px rgba(255,59,48,0.1)' : 'var(--shadow-sm)' }}>
+      {/* Header */}
+      <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => setShowDetail(!showDetail)}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: badge.bg, color: badge.color }}>{badge.label}</span>
+              {dec.consequence_label && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{dec.consequence_label}</span>}
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>{dec.title}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>{dec.context}</div>
+          </div>
+          <div style={{ flexShrink: 0, textAlign: 'right' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: recColor, background: recColor + '18', padding: '4px 10px', borderRadius: 8, marginBottom: 4 }}>{recIcon}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{dec.confidence_score}% confidence</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Detail */}
+      {showDetail && (
+        <div style={{ padding: '0 16px 16px', borderTop: '0.5px solid var(--border)' }}>
+          <div style={{ paddingTop: 12, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Cervio's Reasoning</div>
+            <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{dec.reasoning}</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <div style={{ padding: '10px 12px', background: 'rgba(52,199,89,0.08)', borderRadius: 10, border: '0.5px solid rgba(52,199,89,0.2)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--success)', marginBottom: 4 }}>IF APPROVED</div>
+              <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>{dec.expected_impact_approve}</p>
+            </div>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,59,48,0.06)', borderRadius: 10, border: '0.5px solid rgba(255,59,48,0.15)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>IF REJECTED</div>
+              <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>{dec.expected_impact_reject}</p>
+            </div>
+          </div>
+
+          {dec.auto_actions?.length > 0 && (
+            <div style={{ padding: '10px 12px', background: 'var(--accent-light)', borderRadius: 10, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', marginBottom: 4 }}>CERVIO WILL EXECUTE</div>
+              {dec.auto_actions.map((a: any, i: number) => (
+                <div key={i} style={{ fontSize: 13, color: 'var(--text)' }}>→ {a.title}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => onAction(dec.id, 'approved')} disabled={acting} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--success)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: acting ? 0.6 : 1 }}>
+              ✓ Approve
+            </button>
+            <button onClick={() => onAction(dec.id, 'rejected')} disabled={acting} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid var(--danger)', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: acting ? 0.6 : 1 }}>
+              ✗ Reject
+            </button>
+            <button onClick={() => onAction(dec.id, 'delayed')} disabled={acting} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--surface2)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: acting ? 0.6 : 1 }}>
+              ⏸ Delay
+            </button>
+          </div>
+
+          {dec.delay_count >= 1 && (
+            <p style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8, textAlign: 'center' }}>
+              ⚠ You've delayed this {dec.delay_count} time{dec.delay_count > 1 ? 's' : ''}. Every day costs momentum.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────
+
+export default function CommandCentrePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [briefing, setBriefing] = useState<Briefing | null>(null)
-  const [loadingBriefing, setLoadingBriefing] = useState(false)
+  const [health, setHealth] = useState<BusinessHealth | null>(null)
+  const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([])
+  const [pendingDecisions, setPendingDecisions] = useState<DecisionRec[]>([])
+  const [oneMoveData, setOneMoveData] = useState<any>(null)
+  const [accountabilityData, setAccountabilityData] = useState<any>(null)
+  const [pendingActions, setPendingActions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [analysing, setAnalysing] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
-  const [lastReview, setLastReview] = useState<any>(null)
-  const [recentDecisions, setRecentDecisions] = useState<any[]>([])
-  const [recentMeetings, setRecentMeetings] = useState<any[]>([])
-  const [stakeholderCount, setStakeholderCount] = useState(0)
 
   useEffect(() => { loadData() }, [])
 
-  const loadData = async () => {
-    setPageLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const [profileRes, goalsRes, briefingRes, reviewRes, decisionsRes, meetingsRes, stakeholdersRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase.from('goals').select('*').eq('user_id', user.id).eq('status', 'active').order('priority'),
-      supabase.from('briefings').select('*').eq('user_id', user.id).eq('briefing_date', new Date().toISOString().split('T')[0]).single(),
-      supabase.from('weekly_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single(),
-      supabase.from('decisions').select('id, title, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3),
-      supabase.from('meetings').select('id, title, meeting_with, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3),
-      supabase.from('stakeholders').select('id', { count: 'exact' }).eq('user_id', user.id),
-    ])
-
-    if (profileRes.data) setProfile(profileRes.data)
-    if (goalsRes.data) setGoals(goalsRes.data)
-    if (briefingRes.data) setBriefing(briefingRes.data)
-    if (reviewRes.data) setLastReview(reviewRes.data)
-    if (decisionsRes.data) setRecentDecisions(decisionsRes.data)
-    if (meetingsRes.data) setRecentMeetings(meetingsRes.data)
-    if (stakeholdersRes.count) setStakeholderCount(stakeholdersRes.count)
-    setPageLoading(false)
+  const getHeaders = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
   }
 
-  const generateBriefing = async () => {
-    if (!profile) return
-    setLoadingBriefing(true)
+  const loadData = async () => {
     try {
-      const res = await fetch('/api/briefing/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: profile.id }),
-      })
+      const headers = await getHeaders()
+      const res = await fetch('/api/command-centre', { headers })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setBriefing(data.briefing)
-      toast.success('Briefing generated!')
+      setProfile(data.profile)
+      setHealth(data.businessHealth)
+      setRiskAlerts(data.riskAlerts || [])
+      setPendingDecisions(data.pendingDecisions || [])
+      setPendingActions(data.pendingActions || [])
     } catch (err: any) {
-      toast.error(err.message || 'Failed to generate briefing')
+      console.error(err)
     } finally {
-      setLoadingBriefing(false)
+      setPageLoading(false)
+      setLoading(false)
     }
+  }
+
+  const runAnalysis = async () => {
+    setAnalysing(true)
+    try {
+      const headers = await getHeaders()
+      const res = await fetch('/api/command-centre', { method: 'POST', headers })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      const a = data.analysis
+      setHealth(a.business_health)
+      setRiskAlerts(prev => [...(a.risk_alerts || []).map((r: any, i: number) => ({ ...r, id: `new-${i}` })), ...prev])
+      setPendingDecisions(prev => [...(a.decision_recommendations || []).map((d: any, i: number) => ({ ...d, id: `new-dec-${i}`, delay_count: 0 })), ...prev])
+      setOneMoveData(a.one_move)
+      setAccountabilityData(a.accountability)
+      toast.success('Analysis complete')
+    } catch (err: any) {
+      toast.error(err.message || 'Analysis failed')
+    } finally {
+      setAnalysing(false)
+    }
+  }
+
+  const handleDecisionAction = async (id: string, action: string) => {
+    try {
+      const headers = await getHeaders()
+      const res = await fetch(`/api/command-centre/decisions/${id}`, {
+        method: 'PATCH', headers, body: JSON.stringify({ action }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setPendingDecisions(prev => prev.filter(d => d.id !== id))
+      toast.success(action === 'approved' ? '✓ Decision approved' : action === 'rejected' ? '✗ Decision rejected' : 'Decision delayed')
+      if (action !== 'delayed') loadData()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const dismissAlert = async (id: string) => {
+    const headers = await getHeaders()
+    await supabase.from('risk_alerts').update({ is_dismissed: true }).eq('id', id)
+    setRiskAlerts(prev => prev.filter(a => a.id !== id))
   }
 
   if (pageLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', flexDirection: 'column', gap: 12 }}>
         <div className="spinner" style={{ width: 28, height: 28 }} />
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Loading command centre...</p>
       </div>
     )
   }
 
+  const criticalAlerts = riskAlerts.filter(a => a.severity === 'critical')
+  const highAlerts = riskAlerts.filter(a => a.severity === 'high')
   const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' })
-  const avgProgress = goals.length ? Math.round(goals.reduce((a, g) => a + (g.current_progress || 0), 0) / goals.length) : 0
 
   return (
-    <div style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ padding: '20px 24px', maxWidth: 1100, margin: '0 auto' }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.5, marginBottom: 4 }}>
-          {getGreeting(profile?.full_name)}
-        </h1>
-        <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>{today} · {profile?.business_name || 'Your Business'}</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.5, marginBottom: 2 }}>
+            {getGreeting(profile?.full_name)}
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{today} · {profile?.business_name}</p>
+        </div>
+        <button onClick={runAnalysis} disabled={analysing} style={{ display: 'flex', alignItems: 'center', gap: 8, background: analysing ? 'var(--surface2)' : 'var(--accent)', color: analysing ? 'var(--text-secondary)' : 'white', border: 'none', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: analysing ? 'not-allowed' : 'pointer' }}>
+          <RefreshCw size={13} style={{ animation: analysing ? 'spin 0.7s linear infinite' : 'none' }} />
+          {analysing ? 'Cervio is thinking...' : 'Run Analysis'}
+        </button>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-        {[
-          { label: 'Active Goals', value: goals.length, color: 'var(--accent)', icon: Target },
-          { label: 'Avg Progress', value: `${avgProgress}%`, color: 'var(--success)', icon: TrendingUp },
-          { label: 'Plan', value: profile?.subscription_plan === 'trial' ? 'Trial' : profile?.subscription_plan || 'Trial', color: 'var(--purple)', icon: Zap },
-          { label: 'Today', value: briefing ? 'Briefed' : 'Pending', color: briefing ? 'var(--success)' : 'var(--warning)', icon: Calendar },
-        ].map(stat => (
-          <div key={stat.label} className="card" style={{ padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{stat.label}</span>
-              <stat.icon size={14} style={{ color: stat.color }} />
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: stat.color, letterSpacing: -0.5 }}>{stat.value}</div>
+      {/* Critical alerts banner */}
+      {criticalAlerts.length > 0 && (
+        <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <AlertTriangle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>{criticalAlerts.length} critical issue{criticalAlerts.length > 1 ? 's' : ''} require your immediate attention: </span>
+            <span style={{ fontSize: 14, color: 'var(--text)' }}>{criticalAlerts.map(a => a.title).join(' · ')}</span>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Main grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 20 }}>
 
-        {/* Daily Briefing */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)' }}>Today's Briefing</h2>
-            <button onClick={generateBriefing} disabled={loadingBriefing} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 8 }}>
-              <RefreshCw size={13} style={{ animation: loadingBriefing ? 'spin 0.7s linear infinite' : 'none' }} />
-              {briefing ? 'Regenerate' : 'Generate'}
-            </button>
+        {/* Left column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* One Move */}
+          {oneMoveData && (
+            <div style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #5E5CE6 100%)', borderRadius: 16, padding: '20px 22px', color: 'white' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, opacity: 0.75, marginBottom: 8 }}>THE ONE MOVE THAT MATTERS TODAY</div>
+              <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.4, marginBottom: 10 }}>{oneMoveData.title}</div>
+              <p style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6, marginBottom: 12 }}>{oneMoveData.reasoning}</p>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>⏱ {oneMoveData.time_required}</span>
+                <span style={{ fontSize: 12, opacity: 0.7 }}>→ {oneMoveData.impact}</span>
+              </div>
+            </div>
+          )}
+
+          {/* AI Decisions Required */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Zap size={16} style={{ color: 'var(--accent)' }} />
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>AI Decisions Required</h2>
+                {pendingDecisions.length > 0 && (
+                  <span style={{ background: 'var(--accent)', color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>{pendingDecisions.length}</span>
+                )}
+              </div>
+            </div>
+
+            {pendingDecisions.length === 0 ? (
+              <div style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 14, padding: '32px 20px', textAlign: 'center' }}>
+                <CheckCircle size={24} style={{ color: 'var(--success)', margin: '0 auto 10px' }} />
+                <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>No pending decisions. Run analysis to generate recommendations.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {pendingDecisions.map(dec => (
+                  <DecisionCard key={dec.id} dec={dec} onAction={handleDecisionAction} />
+                ))}
+              </div>
+            )}
           </div>
 
-          {briefing ? (
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', letterSpacing: 1, textTransform: 'uppercase' }}>Top Priorities</span>
+          {/* Accountability */}
+          {accountabilityData?.pressure_message && (
+            <div style={{ background: 'var(--surface)', border: '1px solid rgba(255,149,0,0.3)', borderRadius: 14, padding: '16px 18px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>CERVIO IS WATCHING</div>
+              <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6 }}>{accountabilityData.pressure_message}</p>
+              {accountabilityData.avoidance_patterns?.length > 0 && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '0.5px solid var(--border)' }}>
+                  {accountabilityData.avoidance_patterns.map((p: string, i: number) => (
+                    <div key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>• {p}</div>
+                  ))}
                 </div>
-                {briefing.content.priorities?.map((p, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-tertiary)', width: 16, flexShrink: 0 }}>{i + 1}</span>
-                    <span style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>{p}</span>
+              )}
+            </div>
+          )}
+
+          {/* Pending execution actions */}
+          {pendingActions.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <Activity size={15} style={{ color: 'var(--success)' }} />
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Cervio Wants to Act</h2>
+                <span style={{ background: 'var(--success)', color: 'white', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>{pendingActions.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {pendingActions.map(action => (
+                  <div key={action.id} style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>{action.title}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{action.description}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 8, background: 'var(--success)', color: 'white', border: 'none', cursor: 'pointer' }}>Approve</button>
+                        <button style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text-secondary)', border: '0.5px solid var(--border)', cursor: 'pointer' }}>Skip</button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-
-              {briefing.content.decisions?.length > 0 && (
-                <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--purple)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple)', letterSpacing: 1, textTransform: 'uppercase' }}>Decisions Needed</span>
-                  </div>
-                  {briefing.content.decisions.map((d, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 14, color: 'var(--text)' }}>
-                      <span style={{ color: 'var(--purple)' }}>→</span>{d}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {briefing.content.risks?.length > 0 && (
-                <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', marginBottom: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warning)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--warning)', letterSpacing: 1, textTransform: 'uppercase' }}>Flags & Risks</span>
-                  </div>
-                  {briefing.content.risks.map((r, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 14, color: 'var(--text)' }}>
-                      <span style={{ color: 'var(--warning)' }}>⚠</span>{r}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {briefing.content.strategic_prompt && (
-                <div style={{ padding: '12px 14px', background: 'var(--accent-light)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--accent)' }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>Strategic Prompt</p>
-                  <p style={{ fontSize: 14, color: 'var(--text)', fontStyle: 'italic', lineHeight: 1.5 }}>"{briefing.content.strategic_prompt}"</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <span style={{ fontSize: 22 }}>☀️</span>
-              </div>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>No briefing yet</h3>
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>Start your day with a personalised AI briefing.</p>
-              <button onClick={generateBriefing} disabled={loadingBriefing} className="btn-primary" style={{ maxWidth: 240, margin: '0 auto' }}>
-                {loadingBriefing ? <><div className="spinner" />Generating...</> : "Generate Today's Briefing"}
-              </button>
             </div>
           )}
         </div>
 
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <TodaySchedule />
 
-          {/* Goals preview */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)' }}>Goals</h2>
-              <Link href="/dashboard/goals" style={{ fontSize: 14, color: 'var(--accent)', textDecoration: 'none' }}>View all</Link>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {goals.slice(0, 3).map(goal => (
-                <div key={goal.id} className="card" style={{ padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{goal.title}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{goal.current_progress}%</span>
+          {/* Business Health */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '0.5px solid var(--border)', padding: '18px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>BUSINESS HEALTH</div>
+
+            {health ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <ScoreRing score={health.overall_score} size={76} color={scoreColor(health.overall_score)} />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                      <span style={{ fontSize: 20, fontWeight: 800, color: scoreColor(health.overall_score), lineHeight: 1 }}>{health.overall_score}</span>
+                      <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>/100</span>
+                    </div>
                   </div>
-                  <div style={{ height: 3, background: 'var(--surface3)', borderRadius: 2 }}>
-                    <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 2, width: `${goal.current_progress}%` }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: scoreColor(health.overall_score) }}>
+                      {health.overall_score >= 70 ? 'Healthy' : health.overall_score >= 45 ? 'Needs attention' : 'Critical'}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                      Fix this → <span style={{ color: 'var(--success)' }}>{health.projected_score_after_actions}/100</span>
+                    </div>
                   </div>
                 </div>
-              ))}
-              {goals.length === 0 && (
-                <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>No active goals</p>
-                  <Link href="/dashboard/goals" style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none' }}>Set your first goal →</Link>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                  {[
+                    { label: 'Revenue', score: health.revenue_score },
+                    { label: 'Execution', score: health.execution_score },
+                    { label: 'Team', score: health.team_score },
+                    { label: 'Risk', score: health.risk_score },
+                  ].map(({ label, score }) => (
+                    <div key={label} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: scoreColor(score) }}>{score}</span>
+                      </div>
+                      <div style={{ height: 3, background: 'var(--surface3)', borderRadius: 2 }}>
+                        <div style={{ height: '100%', width: `${score}%`, background: scoreColor(score), borderRadius: 2, transition: 'width 0.8s ease' }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+
+                {health.critical_factors?.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>CRITICAL FACTORS</div>
+                    {health.critical_factors.slice(0, 2).map((f, i) => (
+                      <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 3, paddingLeft: 8, borderLeft: '2px solid var(--danger)' }}>
+                        {f}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>Run analysis to see your business health score</p>
+                <button onClick={runAnalysis} disabled={analysing} style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontWeight: 500 }}>
+                  {analysing ? 'Analysing...' : 'Run Analysis →'}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
 
-      {/* Feature preview cards */}
-      <div style={{ marginBottom: 8 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)', marginBottom: 14 }}>Your Tools</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-
-          {/* Decisions */}
-          <Link href="/dashboard/decisions/new" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Zap size={16} style={{ color: 'var(--accent)' }} />
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Decisions</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>AI-structured analysis for any decision</div>
-              {recentDecisions.length > 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{recentDecisions.length} recent</div>
-              ) : (
-                <div style={{ fontSize: 11, color: 'var(--accent)' }}>Analyse a decision →</div>
-              )}
+          {/* Immediate Risks */}
+          <div style={{ background: 'var(--surface)', borderRadius: 16, border: '0.5px solid var(--border)', padding: '18px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Shield size={14} style={{ color: 'var(--danger)' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.8 }}>IMMEDIATE RISKS</span>
+              {riskAlerts.length > 0 && <span style={{ background: 'var(--danger)', color: 'white', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, marginLeft: 'auto' }}>{riskAlerts.length}</span>}
             </div>
-          </Link>
 
-          {/* Meeting Prep */}
-          <Link href="/dashboard/meetings" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(52, 199, 89, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <CalendarDays size={16} style={{ color: 'var(--success)' }} />
+            {riskAlerts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <CheckCircle size={20} style={{ color: 'var(--success)', margin: '0 auto 8px' }} />
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No active risks detected</p>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Meeting Prep</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Walk into every meeting prepared</div>
-              {recentMeetings.length > 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Last: {recentMeetings[0].meeting_with}</div>
-              ) : (
-                <div style={{ fontSize: 11, color: 'var(--success)' }}>Prep a meeting →</div>
-              )}
-            </div>
-          </Link>
-
-          {/* Coach */}
-          <Link href="/dashboard/coach" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--purple-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Sparkles size={16} style={{ color: 'var(--purple)' }} />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {riskAlerts.slice(0, 5).map(alert => {
+                  const color = severityColor(alert.severity)
+                  return (
+                    <div key={alert.id} style={{ padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, borderLeft: `3px solid ${color}` }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{alert.title}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{alert.description}</div>
+                        </div>
+                        <button onClick={() => dismissAlert(alert.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 16, padding: 0, flexShrink: 0 }}>×</button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Coach</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Honest performance assessment</div>
-              <div style={{ fontSize: 11, color: 'var(--purple)' }}>Get your momentum score →</div>
-            </div>
-          </Link>
+            )}
+          </div>
 
-          {/* Weekly Review */}
-          <Link href="/dashboard/weekly-review" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 149, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Star size={16} style={{ color: 'var(--warning)' }} />
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Weekly Review</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Wins, misses, and next week's focus</div>
-              {lastReview ? (
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Last score: {lastReview.week_score}/100</div>
-              ) : (
-                <div style={{ fontSize: 11, color: 'var(--warning)' }}>Generate this week's review →</div>
-              )}
-            </div>
-          </Link>
-
-          {/* Board Updates */}
-          <Link href="/dashboard/board-update" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(90, 200, 250, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <FileText size={16} style={{ color: 'var(--teal)' }} />
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Board Updates</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Polished investor & board updates</div>
-              <div style={{ fontSize: 11, color: 'var(--teal)' }}>Write an update →</div>
-            </div>
-          </Link>
-
-          {/* Stakeholders */}
-          <Link href="/dashboard/stakeholders" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 59, 48, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Users size={16} style={{ color: 'var(--danger)' }} />
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Stakeholders</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Track key relationships</div>
-              {stakeholderCount > 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{stakeholderCount} tracked</div>
-              ) : (
-                <div style={{ fontSize: 11, color: 'var(--danger)' }}>Add stakeholders →</div>
-              )}
-            </div>
-          </Link>
-
-          {/* Calendar */}
-          <Link href="/dashboard/calendar" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0, 122, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Calendar size={16} style={{ color: 'var(--accent)' }} />
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Calendar</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Week view with meeting notes</div>
-              <div style={{ fontSize: 11, color: 'var(--accent)' }}>View your week →</div>
-            </div>
-          </Link>
-
-          {/* Goals full */}
-          <Link href="/dashboard/goals" style={{ textDecoration: 'none' }}>
-            <div className="card-hover" style={{ padding: 16 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(52, 199, 89, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                <Target size={16} style={{ color: 'var(--success)' }} />
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Goals</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Track progress on what matters</div>
-              {goals.length > 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{goals.length} active · {avgProgress}% avg</div>
-              ) : (
-                <div style={{ fontSize: 11, color: 'var(--success)' }}>Set your goals →</div>
-              )}
-            </div>
-          </Link>
-
+          {/* Quick links */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[
+              { href: '/dashboard/decisions', label: 'Decisions', icon: '⚡', color: 'var(--accent)' },
+              { href: '/dashboard/goals', label: 'Goals', icon: '◎', color: 'var(--success)' },
+              { href: '/dashboard/weekly-review', label: 'Week Review', icon: '★', color: 'var(--warning)' },
+              { href: '/dashboard/stakeholders', label: 'Stakeholders', icon: '◈', color: 'var(--purple)' },
+            ].map(item => (
+              <Link key={item.href} href={item.href} style={{ background: 'var(--surface)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '12px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s' }}>
+                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{item.label}</span>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>
