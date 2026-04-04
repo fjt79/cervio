@@ -10,12 +10,13 @@ import {
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
- { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-{ href: '/dashboard/decisions', icon: Zap, label: 'Decisions' },
-{ href: '/dashboard/meetings', icon: Calendar, label: 'Meeting Prep' },
-{ href: '/dashboard/goals', icon: Target, label: 'Goals' },
-{ href: '/dashboard/coach', icon: Sparkles, label: 'Coach' },
-{ href: '/dashboard/settings', icon: Settings, label: 'Settings' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/dashboard/decisions', icon: Zap, label: 'Decisions' },
+  { href: '/dashboard/meetings', icon: Calendar, label: 'Meeting Prep' },
+  { href: '/dashboard/goals', icon: Target, label: 'Goals' },
+  { href: '/dashboard/coach', icon: Sparkles, label: 'Coach' },
+  { href: '/dashboard/calendar', icon: Calendar, label: 'Calendar' },
+  { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -59,7 +60,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-bg flex">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-bg/80 backdrop-blur-sm z-40 lg:hidden"
@@ -67,12 +67,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Sidebar */}
       <aside className={cn(
         'fixed lg:static inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border flex flex-col transition-transform duration-300',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
-        {/* Logo */}
         <div className="p-6 border-b border-border flex items-center justify-between">
           <div>
             <div className="font-display text-xl font-bold text-accent">Cervio</div>
@@ -83,7 +81,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
 
-        {/* Trial banner */}
         {showTrialBanner && (
           <div className="mx-4 mt-4 p-3 rounded-xl bg-accent/10 border border-accent/20">
             <p className="text-xs text-accent font-medium">
@@ -95,7 +92,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
 
-        {/* Nav */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map(item => {
             const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
@@ -118,7 +114,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* User */}
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold">
@@ -139,9 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile header */}
         <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-surface sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="text-muted hover:text-text">
             <Menu size={20} />
@@ -149,8 +142,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="font-display text-lg font-bold text-accent">Cervio</span>
           <div className="w-8" />
         </div>
-
-        {/* Page content */}
         <main className="flex-1 overflow-auto">
           {children}
         </main>
