@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/dashboard/decisions', icon: Zap, label: 'Decisions' },
   { href: '/dashboard/meetings', icon: Calendar, label: 'Meeting Prep' },
-  { href: '/dashboard/goals', icon: Target, label: 'Goals' },
+  { href: '/dashboard/coach', icon: Zap, label: 'Coach' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
 
