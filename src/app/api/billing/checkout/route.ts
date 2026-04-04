@@ -1,4 +1,3 @@
-cat > ~/Desktop/cervio/src/app/api/billing/checkout/route.ts << 'EOF'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { PLANS, createCheckoutSession, getOrCreateCustomer } from '@/lib/stripe'
@@ -40,4 +39,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
-EOF
