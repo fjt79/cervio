@@ -4,17 +4,18 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, Profile } from '@/lib/supabase'
 import {
-  LayoutDashboard, Zap, Calendar, Target,
+  LayoutDashboard, Zap, Calendar, Target, Sparkles,
   Settings, LogOut, Menu, X, ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/dashboard/decisions', icon: Zap, label: 'Decisions' },
-  { href: '/dashboard/meetings', icon: Calendar, label: 'Meeting Prep' },
-  { href: '/dashboard/coach', icon: Zap, label: 'Coach' },
-  { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
+ { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+{ href: '/dashboard/decisions', icon: Zap, label: 'Decisions' },
+{ href: '/dashboard/meetings', icon: Calendar, label: 'Meeting Prep' },
+{ href: '/dashboard/goals', icon: Target, label: 'Goals' },
+{ href: '/dashboard/coach', icon: Sparkles, label: 'Coach' },
+{ href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

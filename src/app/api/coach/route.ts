@@ -79,7 +79,8 @@ Return ONLY the JSON. No preamble, no markdown backticks.`
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    const coaching = JSON.parse(text)
+    const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+const coaching = JSON.parse(clean)
 
     return NextResponse.json({ coaching, metrics: { avgProgress, goalCount: goals.length, briefingStreak, totalActivity } })
   } catch (err: any) {
