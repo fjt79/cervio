@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase, Profile, Goal, Briefing } from '@/lib/supabase'
-import { getGreeting, formatDate } from '@/lib/utils'
-import { RefreshCw, ChevronRight, Zap, Calendar, Target, TrendingUp } from 'lucide-react'
+import { getGreeting } from '@/lib/utils'
+import { RefreshCw, ChevronRight, Zap, Calendar, Target, TrendingUp, Star, FileText, Users, Sparkles, CalendarDays, Clock, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import TodaySchedule from '@/components/features/TodaySchedule'
@@ -13,26 +13,35 @@ export default function DashboardPage() {
   const [briefing, setBriefing] = useState<Briefing | null>(null)
   const [loadingBriefing, setLoadingBriefing] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
+  const [lastReview, setLastReview] = useState<any>(null)
+  const [recentDecisions, setRecentDecisions] = useState<any[]>([])
+  const [recentMeetings, setRecentMeetings] = useState<any[]>([])
+  const [stakeholderCount, setStakeholderCount] = useState(0)
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
     setPageLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const [profileRes, goalsRes, briefingRes] = await Promise.all([
+    const [profileRes, goalsRes, briefingRes, reviewRes, decisionsRes, meetingsRes, stakeholdersRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('goals').select('*').eq('user_id', user.id).eq('status', 'active').order('priority'),
-      supabase.from('briefings').select('*').eq('user_id', user.id)
-        .eq('briefing_date', new Date().toISOString().split('T')[0]).single(),
+      supabase.from('briefings').select('*').eq('user_id', user.id).eq('briefing_date', new Date().toISOString().split('T')[0]).single(),
+      supabase.from('weekly_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single(),
+      supabase.from('decisions').select('id, title, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3),
+      supabase.from('meetings').select('id, title, meeting_with, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3),
+      supabase.from('stakeholders').select('id', { count: 'exact' }).eq('user_id', user.id),
     ])
 
     if (profileRes.data) setProfile(profileRes.data)
     if (goalsRes.data) setGoals(goalsRes.data)
     if (briefingRes.data) setBriefing(briefingRes.data)
+    if (reviewRes.data) setLastReview(reviewRes.data)
+    if (decisionsRes.data) setRecentDecisions(decisionsRes.data)
+    if (meetingsRes.data) setRecentMeetings(meetingsRes.data)
+    if (stakeholdersRes.count) setStakeholderCount(stakeholdersRes.count)
     setPageLoading(false)
   }
 
@@ -58,199 +67,274 @@ export default function DashboardPage() {
 
   if (pageLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="spinner mx-auto mb-4" style={{ width: 32, height: 32 }} />
-          <p className="text-muted text-sm">Loading your dashboard...</p>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div className="spinner" style={{ width: 28, height: 28 }} />
       </div>
     )
   }
 
   const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' })
+  const avgProgress = goals.length ? Math.round(goals.reduce((a, g) => a + (g.current_progress || 0), 0) / goals.length) : 0
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto">
+    <div style={{ padding: '24px 28px', maxWidth: 1100, margin: '0 auto' }}>
+
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold mb-1">
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.5, marginBottom: 4 }}>
           {getGreeting(profile?.full_name)}
         </h1>
-        <p className="text-muted text-sm">{today} · {profile?.business_name || 'Your Business'}</p>
+        <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>{today} · {profile?.business_name || 'Your Business'}</p>
       </div>
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Active Goals', value: goals.length, icon: Target, color: 'text-accent' },
-          { label: 'Avg Progress', value: `${goals.length ? Math.round(goals.reduce((a, g) => a + (g.current_progress || 0), 0) / goals.length) : 0}%`, icon: TrendingUp, color: 'text-success' },
-          { label: 'Plan', value: profile?.subscription_plan === 'trial' ? 'Free Trial' : profile?.subscription_plan || 'Trial', icon: Zap, color: 'text-accent2' },
-          { label: 'Today', value: briefing ? 'Briefed' : 'Pending', icon: Calendar, color: briefing ? 'text-success' : 'text-warning' },
+          { label: 'Active Goals', value: goals.length, color: 'var(--accent)', icon: Target },
+          { label: 'Avg Progress', value: `${avgProgress}%`, color: 'var(--success)', icon: TrendingUp },
+          { label: 'Plan', value: profile?.subscription_plan === 'trial' ? 'Trial' : profile?.subscription_plan || 'Trial', color: 'var(--purple)', icon: Zap },
+          { label: 'Today', value: briefing ? 'Briefed' : 'Pending', color: briefing ? 'var(--success)' : 'var(--warning)', icon: Calendar },
         ].map(stat => (
-          <div key={stat.label} className="card">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted uppercase tracking-wider">{stat.label}</span>
-              <stat.icon size={14} className={stat.color} />
+          <div key={stat.label} className="card" style={{ padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{stat.label}</span>
+              <stat.icon size={14} style={{ color: stat.color }} />
             </div>
-            <div className="font-display text-2xl font-bold">{stat.value}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: stat.color, letterSpacing: -0.5 }}>{stat.value}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Daily Briefing - takes 2 columns */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-xl font-bold">Today's Briefing</h2>
-            <button
-              onClick={generateBriefing}
-              disabled={loadingBriefing}
-              className="flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={loadingBriefing ? 'animate-spin' : ''} />
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 24 }}>
+
+        {/* Daily Briefing */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)' }}>Today's Briefing</h2>
+            <button onClick={generateBriefing} disabled={loadingBriefing} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 8 }}>
+              <RefreshCw size={13} style={{ animation: loadingBriefing ? 'spin 0.7s linear infinite' : 'none' }} />
               {briefing ? 'Regenerate' : 'Generate'}
             </button>
           </div>
 
           {briefing ? (
-            <div className="card space-y-6">
-              {/* Priorities */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="w-2 h-2 bg-accent rounded-full" />
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">Top Priorities</h3>
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', letterSpacing: 1, textTransform: 'uppercase' }}>Top Priorities</span>
                 </div>
-                <ol className="space-y-2">
-                  {briefing.content.priorities?.map((p, i) => (
-                    <li key={i} className="flex gap-3 text-sm">
-                      <span className="font-display font-bold text-accent/50 w-4 flex-shrink-0">{i + 1}</span>
-                      <span className="text-text/90">{p}</span>
-                    </li>
-                  ))}
-                </ol>
+                {briefing.content.priorities?.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-tertiary)', width: 16, flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>{p}</span>
+                  </div>
+                ))}
               </div>
 
-              {/* Decisions */}
               {briefing.content.decisions?.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-2 h-2 bg-accent2 rounded-full" />
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-accent2">Decisions Needed</h3>
+                <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--purple)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple)', letterSpacing: 1, textTransform: 'uppercase' }}>Decisions Needed</span>
                   </div>
-                  <ul className="space-y-2">
-                    {briefing.content.decisions.map((d, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-text/80">
-                        <span className="text-accent2 flex-shrink-0">→</span>
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
+                  {briefing.content.decisions.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 14, color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--purple)' }}>→</span>{d}
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {/* Risks */}
               {briefing.content.risks?.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-2 h-2 bg-warning rounded-full" />
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-warning">Flags & Risks</h3>
+                <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warning)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--warning)', letterSpacing: 1, textTransform: 'uppercase' }}>Flags & Risks</span>
                   </div>
-                  <ul className="space-y-2">
-                    {briefing.content.risks.map((r, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-text/80">
-                        <span className="text-warning flex-shrink-0">⚠</span>
-                        {r}
-                      </li>
-                    ))}
-                  </ul>
+                  {briefing.content.risks.map((r, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, fontSize: 14, color: 'var(--text)' }}>
+                      <span style={{ color: 'var(--warning)' }}>⚠</span>{r}
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {/* Strategic prompt */}
               {briefing.content.strategic_prompt && (
-                <div className="p-4 rounded-xl bg-accent/5 border border-accent/20">
-                  <p className="text-xs text-accent uppercase tracking-wider mb-2 font-medium">Strategic Prompt</p>
-                  <p className="text-sm text-text italic">"{briefing.content.strategic_prompt}"</p>
+                <div style={{ padding: '12px 14px', background: 'var(--accent-light)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--accent)' }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>Strategic Prompt</p>
+                  <p style={{ fontSize: 14, color: 'var(--text)', fontStyle: 'italic', lineHeight: 1.5 }}>"{briefing.content.strategic_prompt}"</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="card text-center py-12">
-              <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-4">
-                <span className="text-accent text-xl">☀</span>
+            <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <span style={{ fontSize: 22 }}>☀️</span>
               </div>
-              <h3 className="font-semibold mb-2">No briefing yet</h3>
-              <p className="text-muted text-sm mb-6">
-                Start your day with a personalised AI briefing tailored to your goals and context.
-              </p>
-              <button onClick={generateBriefing} disabled={loadingBriefing} className="btn-primary mx-auto">
-                {loadingBriefing ? (
-                  <span className="flex items-center gap-2"><div className="spinner" /> Generating...</span>
-                ) : "Generate Today's Briefing"}
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>No briefing yet</h3>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>Start your day with a personalised AI briefing.</p>
+              <button onClick={generateBriefing} disabled={loadingBriefing} className="btn-primary" style={{ maxWidth: 240, margin: '0 auto' }}>
+                {loadingBriefing ? <><div className="spinner" />Generating...</> : "Generate Today's Briefing"}
               </button>
             </div>
           )}
         </div>
 
         {/* Right column */}
-        <div className="space-y-6">
-
-          {/* Today's Schedule */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <TodaySchedule />
 
-          {/* Quick actions */}
+          {/* Goals preview */}
           <div>
-            <h2 className="font-display text-xl font-bold mb-4">Quick Actions</h2>
-            <div className="space-y-2">
-              {[
-                { href: '/dashboard/decisions/new', icon: Zap, label: 'New Decision', desc: 'Analyse a situation' },
-                { href: '/dashboard/meetings', icon: Calendar, label: 'Prep a Meeting', desc: 'Get a meeting brief' },
-                { href: '/dashboard/goals', icon: Target, label: 'Review Goals', desc: 'Check your progress' },
-              ].map(action => (
-                <Link key={action.href} href={action.href} className="card-hover flex items-center gap-3 p-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                    <action.icon size={14} className="text-accent" />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)' }}>Goals</h2>
+              <Link href="/dashboard/goals" style={{ fontSize: 14, color: 'var(--accent)', textDecoration: 'none' }}>View all</Link>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {goals.slice(0, 3).map(goal => (
+                <div key={goal.id} className="card" style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{goal.title}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{goal.current_progress}%</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium">{action.label}</div>
-                    <div className="text-xs text-muted">{action.desc}</div>
+                  <div style={{ height: 3, background: 'var(--surface3)', borderRadius: 2 }}>
+                    <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 2, width: `${goal.current_progress}%` }} />
                   </div>
-                  <ChevronRight size={14} className="text-muted group-hover:text-accent transition-colors" />
-                </Link>
+                </div>
               ))}
+              {goals.length === 0 && (
+                <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>No active goals</p>
+                  <Link href="/dashboard/goals" style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none' }}>Set your first goal →</Link>
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Active goals */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display text-xl font-bold">Goals</h2>
-              <Link href="/dashboard/goals" className="text-xs text-accent hover:underline">View all</Link>
+      {/* Feature preview cards */}
+      <div style={{ marginBottom: 8 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--text)', marginBottom: 14 }}>Your Tools</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+
+          {/* Decisions */}
+          <Link href="/dashboard/decisions/new" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Zap size={16} style={{ color: 'var(--accent)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Decisions</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>AI-structured analysis for any decision</div>
+              {recentDecisions.length > 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{recentDecisions.length} recent</div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--accent)' }}>Analyse a decision →</div>
+              )}
             </div>
-            {goals.length > 0 ? (
-              <div className="space-y-3">
-                {goals.slice(0, 3).map(goal => (
-                  <div key={goal.id} className="card p-3">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-sm font-medium leading-tight">{goal.title}</span>
-                      <span className="text-xs text-accent ml-2 flex-shrink-0">{goal.current_progress}%</span>
-                    </div>
-                    <div className="h-1 bg-border rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent rounded-full transition-all"
-                        style={{ width: `${goal.current_progress}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+          </Link>
+
+          {/* Meeting Prep */}
+          <Link href="/dashboard/meetings" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(52, 199, 89, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <CalendarDays size={16} style={{ color: 'var(--success)' }} />
               </div>
-            ) : (
-              <div className="card text-center py-6">
-                <p className="text-muted text-sm mb-3">No active goals yet</p>
-                <Link href="/dashboard/goals" className="text-accent text-sm hover:underline">Set your first goal →</Link>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Meeting Prep</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Walk into every meeting prepared</div>
+              {recentMeetings.length > 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Last: {recentMeetings[0].meeting_with}</div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--success)' }}>Prep a meeting →</div>
+              )}
+            </div>
+          </Link>
+
+          {/* Coach */}
+          <Link href="/dashboard/coach" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--purple-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Sparkles size={16} style={{ color: 'var(--purple)' }} />
               </div>
-            )}
-          </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Coach</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Honest performance assessment</div>
+              <div style={{ fontSize: 11, color: 'var(--purple)' }}>Get your momentum score →</div>
+            </div>
+          </Link>
+
+          {/* Weekly Review */}
+          <Link href="/dashboard/weekly-review" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 149, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Star size={16} style={{ color: 'var(--warning)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Weekly Review</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Wins, misses, and next week's focus</div>
+              {lastReview ? (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Last score: {lastReview.week_score}/100</div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--warning)' }}>Generate this week's review →</div>
+              )}
+            </div>
+          </Link>
+
+          {/* Board Updates */}
+          <Link href="/dashboard/board-update" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(90, 200, 250, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <FileText size={16} style={{ color: 'var(--teal)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Board Updates</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Polished investor & board updates</div>
+              <div style={{ fontSize: 11, color: 'var(--teal)' }}>Write an update →</div>
+            </div>
+          </Link>
+
+          {/* Stakeholders */}
+          <Link href="/dashboard/stakeholders" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 59, 48, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Users size={16} style={{ color: 'var(--danger)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Stakeholders</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Track key relationships</div>
+              {stakeholderCount > 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{stakeholderCount} tracked</div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--danger)' }}>Add stakeholders →</div>
+              )}
+            </div>
+          </Link>
+
+          {/* Calendar */}
+          <Link href="/dashboard/calendar" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0, 122, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Calendar size={16} style={{ color: 'var(--accent)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Calendar</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Week view with meeting notes</div>
+              <div style={{ fontSize: 11, color: 'var(--accent)' }}>View your week →</div>
+            </div>
+          </Link>
+
+          {/* Goals full */}
+          <Link href="/dashboard/goals" style={{ textDecoration: 'none' }}>
+            <div className="card-hover" style={{ padding: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(52, 199, 89, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Target size={16} style={{ color: 'var(--success)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Goals</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>Track progress on what matters</div>
+              {goals.length > 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{goals.length} active · {avgProgress}% avg</div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--success)' }}>Set your goals →</div>
+              )}
+            </div>
+          </Link>
 
         </div>
       </div>

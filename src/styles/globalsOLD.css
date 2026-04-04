@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #111118;
+  --surface2: #1a1a24;
+  --border: #2a2a3a;
+  --accent: #c9a96e;
+  --accent2: #7c6ef0;
+  --text: #e8e8f0;
+  --muted: #6b6b80;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-2xl p-6;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-accent2/40 cursor-pointer;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-bg font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 hover:opacity-90
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-surface2 border border-border px-6 py-3 rounded-xl
+           transition-all duration-200 hover:border-accent/40
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 rounded-lg transition-all duration-200
+           hover:bg-surface2;
+  }
+
+  .input {
+    @apply bg-surface2 border border-border rounded-xl px-4 py-3 w-full
+           placeholder-muted focus:outline-none focus:border-accent/50
+           transition-all duration-200;
+  }
+
+  .textarea {
+    @apply input resize-none min-h-[120px];
+  }
+
+  .label {
+    @apply text-sm text-muted mb-2 block font-medium;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border;
+  }
+
+  .section-title {
+    @apply font-display text-2xl font-bold;
+  }
+
+  .page-header {
+    @apply font-display text-3xl font-bold;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent;
+  }
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

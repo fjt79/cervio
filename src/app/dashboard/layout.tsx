@@ -5,22 +5,22 @@ import Link from 'next/link'
 import { supabase, Profile } from '@/lib/supabase'
 import {
   LayoutDashboard, Zap, Calendar, Target, Sparkles,
-  Settings, LogOut, Menu, X, ChevronRight, Star, FileText, Users
+  Settings, LogOut, Menu, X, ChevronRight, Star,
+  FileText, Users, MessageCircle, CalendarDays
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import AskCervioBar from '@/components/features/AskCervioBar'
 
 const NAV_ITEMS = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/dashboard/decisions', icon: Zap, label: 'Decisions' },
-  { href: '/dashboard/meetings', icon: Calendar, label: 'Meeting Prep' },
+  { href: '/dashboard/meetings', icon: CalendarDays, label: 'Meeting Prep' },
   { href: '/dashboard/goals', icon: Target, label: 'Goals' },
   { href: '/dashboard/coach', icon: Sparkles, label: 'Coach' },
   { href: '/dashboard/calendar', icon: Calendar, label: 'Calendar' },
-  { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
-{ href: '/dashboard/weekly-review', icon: Star, label: 'Weekly Review' },
-{ href: '/dashboard/board-update', icon: FileText, label: 'Board Updates' },
-{ href: '/dashboard/ask-cervio', icon: Sparkles, label: 'Ask Cervio' },
-{ href: '/dashboard/stakeholders', icon: Users, label: 'Stakeholders' },
+  { href: '/dashboard/weekly-review', icon: Star, label: 'Weekly Review' },
+  { href: '/dashboard/board-update', icon: FileText, label: 'Board Updates' },
+  { href: '/dashboard/stakeholders', icon: Users, label: 'Stakeholders' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -33,18 +33,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/login'); return }
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (data) {
-        if (!data.onboarding_completed) {
-          router.push('/onboarding')
-          return
-        }
+        if (!data.onboarding_completed) { router.push('/onboarding'); return }
         setProfile(data)
       }
     }
@@ -59,97 +50,163 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const trialDaysLeft = profile?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(profile.trial_ends_at).getTime() - Date.now()) / 86400000))
     : 0
-
   const showTrialBanner = profile?.subscription_plan === 'trial' && trialDaysLeft <= 7
+  const isAskCervio = pathname === '/dashboard/ask-cervio'
 
   return (
-    <div className="min-h-screen bg-bg flex">
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex' }}>
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-bg/80 backdrop-blur-sm z-40 lg:hidden"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)', zIndex: 40 }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border flex flex-col transition-transform duration-300',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      )}>
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <div>
-            <div className="font-display text-xl font-bold text-accent">Cervio</div>
-            <div className="text-xs text-muted">AI Chief of Staff</div>
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-muted hover:text-text">
-            <X size={18} />
-          </button>
+      {/* Sidebar */}
+      <aside style={{
+        width: 240,
+        background: 'var(--surface)',
+        borderRight: '0.5px solid var(--border)',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        zIndex: 50,
+        transform: sidebarOpen ? 'translateX(0)' : undefined,
+        boxShadow: 'var(--shadow-sm)',
+      }} className="hidden lg:flex">
+
+        {/* Logo */}
+        <div style={{ padding: '20px 16px 16px', borderBottom: '0.5px solid var(--border)' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)', letterSpacing: -0.5, fontFamily: '-apple-system, SF Pro Display, sans-serif' }}>Cervio</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>AI Chief of Staff</div>
         </div>
 
+        {/* Trial banner */}
         {showTrialBanner && (
-          <div className="mx-4 mt-4 p-3 rounded-xl bg-accent/10 border border-accent/20">
-            <p className="text-xs text-accent font-medium">
-              {trialDaysLeft === 0 ? 'Trial expired' : `${trialDaysLeft} days left in trial`}
+          <div style={{ margin: '12px 12px 0', padding: '10px 12px', background: 'var(--accent-light)', borderRadius: 'var(--radius-md)', border: '0.5px solid var(--accent)' }}>
+            <p style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+              {trialDaysLeft === 0 ? 'Trial expired' : `${trialDaysLeft} days left`}
             </p>
-            <Link href="/dashboard/settings#billing" className="text-xs text-accent/80 flex items-center gap-1 mt-1 hover:text-accent">
+            <Link href="/dashboard/settings#billing" style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, textDecoration: 'none', opacity: 0.8 }}>
               Upgrade now <ChevronRight size={10} />
             </Link>
           </div>
         )}
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '8px 8px', overflowY: 'auto', marginTop: 4 }}>
           {NAV_ITEMS.map(item => {
             const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all',
-                  active
-                    ? 'bg-accent/10 text-accent border border-accent/20'
-                    : 'text-muted hover:text-text hover:bg-surface2'
-                )}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: 2,
+                  textDecoration: 'none',
+                  fontSize: 14,
+                  fontWeight: active ? 600 : 400,
+                  color: active ? 'var(--accent)' : 'var(--text)',
+                  background: active ? 'var(--accent-light)' : 'transparent',
+                  transition: 'all 0.1s',
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--surface2)' }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
               >
-                <item.icon size={16} />
+                <item.icon size={16} style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)', flexShrink: 0 }} />
                 {item.label}
               </Link>
             )
           })}
         </nav>
 
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold">
+        {/* Bottom — Ask Cervio + Settings + User */}
+        <div style={{ borderTop: '0.5px solid var(--border)', padding: '8px 8px' }}>
+          {/* Ask Cervio */}
+          <Link
+            href="/dashboard/ask-cervio"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 2,
+              textDecoration: 'none',
+              fontSize: 14,
+              fontWeight: isAskCervio ? 600 : 400,
+              color: isAskCervio ? 'var(--accent)' : 'var(--text)',
+              background: isAskCervio ? 'var(--accent-light)' : 'transparent',
+            }}
+          >
+            <MessageCircle size={16} style={{ color: isAskCervio ? 'var(--accent)' : 'var(--text-secondary)' }} />
+            Ask Cervio
+          </Link>
+
+          {/* Settings */}
+          <Link
+            href="/dashboard/settings"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 8,
+              textDecoration: 'none',
+              fontSize: 14,
+              fontWeight: pathname === '/dashboard/settings' ? 600 : 400,
+              color: pathname === '/dashboard/settings' ? 'var(--accent)' : 'var(--text)',
+              background: pathname === '/dashboard/settings' ? 'var(--accent-light)' : 'transparent',
+            }}
+          >
+            <Settings size={16} style={{ color: pathname === '/dashboard/settings' ? 'var(--accent)' : 'var(--text-secondary)' }} />
+            Settings
+          </Link>
+
+          {/* User */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px' }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'white', flexShrink: 0 }}>
               {profile?.full_name?.[0] || 'U'}
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{profile?.full_name || 'User'}</div>
-              <div className="text-xs text-muted truncate">{profile?.email}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.full_name || 'User'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile?.email}</div>
             </div>
+            <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4, borderRadius: 6, display: 'flex' }}>
+              <LogOut size={14} />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-muted hover:text-danger hover:bg-danger/5 text-sm transition-all"
-          >
-            <LogOut size={14} />
-            Sign out
-          </button>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-surface sticky top-0 z-30">
-          <button onClick={() => setSidebarOpen(true)} className="text-muted hover:text-text">
+      {/* Main content */}
+      <div style={{ marginLeft: 240, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, paddingBottom: isAskCervio ? 0 : 72 }} className="lg:ml-[240px] ml-0">
+        {/* Mobile header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '0.5px solid var(--border)', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 30 }} className="lg:hidden">
+          <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)' }}>
             <Menu size={20} />
           </button>
-          <span className="font-display text-lg font-bold text-accent">Cervio</span>
-          <div className="w-8" />
+          <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--accent)' }}>Cervio</span>
+          <div style={{ width: 28 }} />
         </div>
-        <main className="flex-1 overflow-auto">
+
+        <main style={{ flex: 1, overflow: 'auto' }}>
           {children}
         </main>
       </div>
+
+      {/* Persistent Ask Cervio bar — always visible except on Ask Cervio page */}
+      {!isAskCervio && <AskCervioBar />}
     </div>
   )
 }
