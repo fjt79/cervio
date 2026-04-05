@@ -12,18 +12,47 @@ interface DecisionRec { id: string; title: string; context: string; recommendati
 interface BusinessHealth { overall_score: number; revenue_score: number; execution_score: number; team_score: number; risk_score: number; critical_factors: string[]; projected_score_after_actions: number }
 interface RiskAlert { id: string; severity: string; title: string; description: string; recommended_action: string }
 
-function scoreColor(s: number) {
-  if (s >= 70) return 'var(--success)'
-  if (s >= 45) return 'var(--warning)'
-  return 'var(--danger)'
+// ── Tokens ─────────────────────────────────────────────────
+const T = {
+  danger:       '#c41e1e',
+  dangerBg:     'rgba(196,30,30,0.07)',
+  dangerBorder: 'rgba(196,30,30,0.22)',
+  dangerGlow:   '0 4px 20px rgba(196,30,30,0.14)',
+
+  success:      '#146c34',
+  successBg:    'rgba(20,108,52,0.07)',
+  successBorder:'rgba(20,108,52,0.22)',
+  successBtn:   '#155e2f',
+  successHover: '#0f4a24',
+
+  accent:       '#1d4ed8',
+  accentLight:  'rgba(29,78,216,0.09)',
+  accentMid:    'rgba(29,78,216,0.18)',
+
+  warning:      '#a16207',
+  warningBg:    'rgba(161,98,7,0.07)',
+  warningBorder:'rgba(161,98,7,0.2)',
+
+  purple:       '#5b21b6',
+  purpleBg:     'rgba(91,33,182,0.07)',
+  purpleBorder: 'rgba(91,33,182,0.18)',
+
+  shadowSm:  '0 2px 6px rgba(10,10,11,0.07), 0 1px 2px rgba(10,10,11,0.05)',
+  shadowMd:  '0 6px 18px rgba(10,10,11,0.09), 0 2px 6px rgba(10,10,11,0.05)',
+  shadowLg:  '0 12px 32px rgba(10,10,11,0.11), 0 4px 10px rgba(10,10,11,0.06)',
+  shadowXl:  '0 24px 56px rgba(10,10,11,0.14), 0 8px 18px rgba(10,10,11,0.07)',
 }
 
+function scoreColor(s: number) {
+  if (s >= 70) return T.success
+  if (s >= 45) return T.warning
+  return T.danger
+}
 function getGreeting(name?: string) {
   const h = new Date().getHours()
   const g = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
   return name ? `${g}, ${name.split(' ')[0]}` : g
 }
-
 function generateTasks(decision: DecisionRec): Task[] {
   if (decision.auto_actions?.length > 0) {
     return decision.auto_actions.slice(0, 4).map((a: any, i: number) => ({
@@ -39,7 +68,6 @@ function generateTasks(decision: DecisionRec): Task[] {
     { id: 't4', title: 'Schedule 7-day checkpoint', owner: 'You', due: 'In 7 days', status: 'pending' as const },
   ]
 }
-
 function getUnlocks(title: string): string[] {
   const t = title.toLowerCase()
   if (t.includes('revenue') || t.includes('sales')) return ['Q2 target planning', 'Pipeline review', 'Pricing strategy']
@@ -49,93 +77,90 @@ function getUnlocks(title: string): string[] {
 }
 
 // ── Score Ring ──────────────────────────────────────────────
-
-function ScoreRing({ score, size = 82, color }: { score: number; size?: number; color: string }) {
-  const r = (size - 10) / 2
+function ScoreRing({ score, size = 88, color }: { score: number; size?: number; color: string }) {
+  const r = (size - 11) / 2
   const circ = 2 * Math.PI * r
   const offset = circ - (score / 100) * circ
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--surface3)" strokeWidth={7} />
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={7}
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--surface3)" strokeWidth={8} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={8}
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.34,1.1,0.64,1), stroke 0.4s ease' }} />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{score}</span>
-        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 1 }}>/100</span>
+        <span style={{ fontSize: 24, fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: -0.5 }}>{score}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 1, fontWeight: 500 }}>/100</span>
       </div>
     </div>
   )
 }
 
 // ── Task Row ────────────────────────────────────────────────
-
 function TaskRow({ task, onToggle }: { task: Task; onToggle: (id: string) => void }) {
-  const colors = { done: 'var(--success)', in_progress: 'var(--accent)', pending: 'var(--text-tertiary)' }
-  const labels = { done: 'Done', in_progress: 'Active', pending: 'Pending' }
+  const c = { done: T.success, in_progress: T.accent, pending: 'var(--text-tertiary)' }
+  const l = { done: 'Done', in_progress: 'Active', pending: 'Pending' }
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-      <button onClick={() => onToggle(task.id)} style={{ width: 20, height: 20, borderRadius: '50%', border: `1.5px solid ${colors[task.status]}`, background: task.status === 'done' ? colors[task.status] : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+      <button onClick={() => onToggle(task.id)} style={{ width: 21, height: 21, borderRadius: '50%', border: `1.5px solid ${c[task.status]}`, background: task.status === 'done' ? c[task.status] : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>
         {task.status === 'done' && <CheckCircle size={10} style={{ color: 'white' }} />}
-        {task.status === 'in_progress' && <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />}
+        {task.status === 'in_progress' && <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.accent }} />}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: task.status === 'done' ? 'var(--text-tertiary)' : 'var(--text)', fontWeight: 500, textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>{task.title}</div>
+        <div style={{ fontSize: 13, color: task.status === 'done' ? 'var(--text-tertiary)' : 'var(--text)', fontWeight: 500, textDecoration: task.status === 'done' ? 'line-through' : 'none', transition: 'all 0.15s' }}>{task.title}</div>
         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>👤 {task.owner} · 📅 {task.due}</div>
       </div>
-      <span className={`badge badge-${task.status === 'done' ? 'success' : task.status === 'in_progress' ? 'accent' : ''}`} style={task.status === 'pending' ? { background: 'var(--surface2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' } : {}}>{labels[task.status]}</span>
+      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: c[task.status] + '15', color: c[task.status], border: `1px solid ${c[task.status]}25`, flexShrink: 0 }}>{l[task.status]}</span>
     </div>
   )
 }
 
 // ── AI Panel ────────────────────────────────────────────────
-
 function AICervioPanel({ decisions, analysing, onAnalyse }: { decisions: DecisionRec[]; analysing: boolean; onAnalyse: () => void }) {
   const [open, setOpen] = useState(true)
   const [msgIdx, setMsgIdx] = useState(0)
   const delayed = decisions.filter(d => (d.delay_count || 0) >= 2)
   const critical = decisions.filter(d => d.urgency === 'critical').length
   const messages = delayed.length > 0
-    ? [`"${delayed[0].title}" delayed ${delayed[0].delay_count}×. Blocking execution.`, 'Every delay compounds. Act now.']
-    : critical > 0 ? [`${critical} critical decision${critical > 1 ? 's' : ''} blocking your business.`]
-    : decisions.length > 0 ? [`${decisions.length} decision${decisions.length > 1 ? 's' : ''} awaiting action. Work is stalled.`]
-    : ['No pending decisions. Run analysis to stay ahead.']
+    ? [`You have ${delayed.length} stalled decision${delayed.length>1?'s':''}. Every delay is compounding. Resolve now.`]
+    : critical > 0 ? [`${critical} decision${critical>1?'s are':' is'} blocking execution. Resolve now.`]
+    : decisions.length > 0 ? [`You have ${decisions.length} decision${decisions.length>1?'s':''} blocking execution.`]
+    : ['No pending decisions. Run analysis to stay sharp.']
 
   useEffect(() => {
-    const t = setInterval(() => setMsgIdx(i => (i + 1) % messages.length), 5500)
+    const t = setInterval(() => setMsgIdx(i => (i + 1) % messages.length), 6000)
     return () => clearInterval(t)
   }, [messages.length])
 
   return (
-    <div style={{ position: 'fixed', bottom: 88, right: 20, width: 272, zIndex: 45 }}>
+    <div style={{ position: 'fixed', bottom: 88, right: 20, width: 284, zIndex: 45 }}>
       {open ? (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, boxShadow: 'var(--shadow-xl)', overflow: 'hidden' }}>
-          <div style={{ padding: '10px 14px', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, boxShadow: T.shadowXl, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 16px', background: T.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }} className="animate-pulse-dot" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: -0.1 }}>Cervio is watching</span>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.success, animation: 'dashPulse 2s ease-in-out infinite' }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.accent, letterSpacing: -0.1 }}>Cervio — COO Mode</span>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 18, lineHeight: 1, padding: '0 2px' }}>×</button>
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 18, lineHeight: 1, padding: '0 2px', borderRadius: 4 }}>×</button>
           </div>
-          <div style={{ padding: '13px 14px' }}>
-            <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, marginBottom: 13, minHeight: 40 }}>{messages[msgIdx % messages.length]}</p>
+          <div style={{ padding: '14px 16px' }}>
+            <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', lineHeight: 1.6, marginBottom: 14, minHeight: 44 }}>{messages[msgIdx % messages.length]}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              <button onClick={onAnalyse} disabled={analysing} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}>
-                <Zap size={12} />{analysing ? 'Analysing...' : 'Run Analysis'}
+              <button onClick={onAnalyse} disabled={analysing} style={{ padding: '10px 0', background: analysing ? 'var(--surface2)' : T.accent, color: analysing ? 'var(--text-secondary)' : 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: analysing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.15s', boxShadow: analysing ? 'none' : `0 2px 8px ${T.accentMid}` }}>
+                <Zap size={13} />{analysing ? 'Analysing...' : 'Run Analysis'}
               </button>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
                 {['📩 Send to Team', '📅 Schedule'].map(t => (
-                  <button key={t} className="btn btn-ghost" style={{ fontSize: 12, padding: '8px 0', justifyContent: 'center' }}>{t}</button>
+                  <button key={t} style={{ padding: '8px 0', background: 'var(--surface2)', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 9, fontSize: 12, fontWeight: 500, cursor: 'pointer', transition: 'all 0.12s' }}>{t}</button>
                 ))}
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <button onClick={() => setOpen(true)} className="btn btn-primary" style={{ width: '100%', padding: '11px 16px', borderRadius: 14, fontSize: 13, justifyContent: 'center', boxShadow: 'var(--shadow-lg)' }}>
-          <Brain size={14} />Cervio {decisions.length > 0 ? `· ${decisions.length} pending` : '· ready'}
+        <button onClick={() => setOpen(true)} style={{ width: '100%', padding: '11px 16px', background: T.accent, color: 'white', border: 'none', borderRadius: 14, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', boxShadow: T.shadowLg }}>
+          <Brain size={14} />Cervio {decisions.length > 0 ? `· ${decisions.length} decision${decisions.length>1?'s':''} pending` : '· ready'}
         </button>
       )}
     </div>
@@ -143,26 +168,34 @@ function AICervioPanel({ decisions, analysing, onAnalyse }: { decisions: Decisio
 }
 
 // ── Today's Command ─────────────────────────────────────────
-
 function TodaysCommand({ data, onExecute }: { data: any; onExecute: () => void }) {
   if (!data) return null
   return (
-    <div style={{ background: 'linear-gradient(135deg, #06060f 0%, #0e0e28 55%, #060a18 100%)', borderRadius: 16, padding: '20px 24px', marginBottom: 24, border: '1px solid rgba(255,255,255,0.07)', position: 'relative', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}>
-      <div style={{ position: 'absolute', top: -20, right: -20, width: 160, height: 160, borderRadius: '50%', background: 'rgba(29,78,216,0.12)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+    <div style={{ borderRadius: 18, padding: '28px 30px', marginBottom: 28, position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, #040410 0%, #0a0a28 45%, #040a1a 100%)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 12px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
+      {/* Glow */}
+      <div style={{ position: 'absolute', top: -30, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(29,78,216,0.15)', filter: 'blur(70px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -20, left: 60, width: 140, height: 140, borderRadius: '50%', background: 'rgba(91,33,182,0.1)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 70% 50%, rgba(29,78,216,0.06) 0%, transparent 60%)', pointerEvents: 'none', animation: 'cmdGlow 8s ease-in-out infinite' }} />
+
       <div style={{ position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-          <Flame size={12} style={{ color: '#f59e0b' }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', letterSpacing: 1.8, textTransform: 'uppercase' }}>Today's Command</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+          <Flame size={13} style={{ color: '#f59e0b' }} />
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#f59e0b', letterSpacing: 2, textTransform: 'uppercase' }}>Today's Command</span>
         </div>
-        <div style={{ fontSize: 19, fontWeight: 700, color: 'white', lineHeight: 1.3, marginBottom: 7, letterSpacing: -0.3 }}>{data.title}</div>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.48)', lineHeight: 1.65, marginBottom: 14 }}>{data.reasoning}</p>
-        <div style={{ display: 'flex', gap: 20, marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          {[['TIME', data.time_required], ['UNLOCKS', data.impact]].map(([l, v]) => v ? (
-            <div key={l}><div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginBottom: 3, letterSpacing: 1 }}>{l}</div><div style={{ fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>{v}</div></div>
-          ) : null)}
+        <div style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1.25, marginBottom: 10, letterSpacing: -0.5, maxWidth: 600 }}>{data.title}</div>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, marginBottom: 20, maxWidth: 520 }}>{data.reasoning}</p>
+        <div style={{ display: 'flex', gap: 24, marginBottom: 20, paddingBottom: 18, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          {[['TIME', data.time_required], ['UNLOCKS', data.impact]].filter(([,v]) => v).map(([l, v]) => (
+            <div key={l}>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', marginBottom: 4, letterSpacing: 1.2, textTransform: 'uppercase' }}>{l}</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.78)', fontWeight: 600 }}>{v}</div>
+            </div>
+          ))}
         </div>
-        <button onClick={onExecute} style={{ padding: '9px 20px', background: 'rgba(29,78,216,0.85)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, fontSize: 13, fontWeight: 650, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, transition: 'all 0.15s' }}>
-          <CheckCircle size={13} />Execute Now
+        <button onClick={onExecute} style={{ padding: '11px 24px', background: 'rgba(29,78,216,0.9)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 11, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7, transition: 'all 0.15s', boxShadow: '0 4px 16px rgba(29,78,216,0.35), inset 0 1px 0 rgba(255,255,255,0.1)' }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(29,78,216,1)'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(29,78,216,0.9)'}>
+          <CheckCircle size={14} />Execute Now
         </button>
       </div>
     </div>
@@ -170,7 +203,6 @@ function TodaysCommand({ data, onExecute }: { data: any; onExecute: () => void }
 }
 
 // ── Decision Card ───────────────────────────────────────────
-
 function DecisionCard({ dec, health, onAction, isPrimary }: {
   dec: DecisionRec; health: BusinessHealth | null
   onAction: (id: string, action: string) => void; isPrimary?: boolean
@@ -181,7 +213,11 @@ function DecisionCard({ dec, health, onAction, isPrimary }: {
   const [acting, setActing] = useState(false)
   const unlocks = getUnlocks(dec.title)
 
-  const recColor = dec.recommendation === 'approve' ? 'var(--success)' : dec.recommendation === 'reject' ? 'var(--danger)' : 'var(--warning)'
+  const isCritical = dec.urgency === 'critical'
+  const isExecuting = cardState === 'executing'
+  const isCompleted = cardState === 'completed'
+
+  const recColor = dec.recommendation === 'approve' ? T.success : dec.recommendation === 'reject' ? T.danger : T.warning
   const recLabel = dec.recommendation === 'approve' ? '✓ Approve' : dec.recommendation === 'reject' ? '✗ Reject' : '⏸ Delay'
 
   const handleApprove = () => {
@@ -189,17 +225,15 @@ function DecisionCard({ dec, health, onAction, isPrimary }: {
     setActing(true)
     const tasks = generateTasks(dec)
     tasks[0].status = 'in_progress'
-    setExecution({ tasks, progress: Math.round((1 / tasks.length) * 100), completedCount: 1, nextCheckpoint: 'Tomorrow 9:00 AM', startedAt: Date.now() })
+    setExecution({ tasks, progress: Math.round((1/tasks.length)*100), completedCount: 1, nextCheckpoint: 'Tomorrow 9:00 AM', startedAt: Date.now() })
     setCardState('executing')
     setExpanded(true)
     setActing(false)
-    toast.success('✓ Execution started')
+    toast.success('✓ Execution started — tasks created')
     onAction(dec.id, 'approved')
   }
-
   const handleReject = () => { setCardState('rejected'); onAction(dec.id, 'rejected'); toast('Rejected and logged', { icon: '✗' }) }
-  const handleDelay = () => { onAction(dec.id, 'delayed'); toast('Delayed — blocking execution', { icon: '⏸' }) }
-
+  const handleDelay = () => { onAction(dec.id, 'delayed'); toast(`Delayed — this is blocking execution`, { icon: '⏸' }) }
   const handleToggleTask = (taskId: string) => {
     if (!execution) return
     const updated = execution.tasks.map(t => t.id === taskId ? { ...t, status: t.status === 'done' ? 'pending' as const : 'done' as const } : t)
@@ -211,150 +245,168 @@ function DecisionCard({ dec, health, onAction, isPrimary }: {
 
   if (cardState === 'rejected') {
     return (
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', opacity: 0.45 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 18px', opacity: 0.4 }}>
         <div style={{ fontSize: 14, color: 'var(--text-secondary)', textDecoration: 'line-through' }}>{dec.title}</div>
         <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>Rejected · logged for accuracy tracking</div>
       </div>
     )
   }
 
-  const isCritical = dec.urgency === 'critical'
-  const isExecuting = cardState === 'executing'
-  const isCompleted = cardState === 'completed'
+  // Left bar color
+  const leftBar = isExecuting ? T.accent : isCompleted ? T.success : isCritical ? T.danger : isPrimary ? T.accent : 'transparent'
 
-  // Visual hierarchy: primary card gets dominant treatment
-  const cardBg = isExecuting ? 'var(--surface)' : isCritical ? 'rgba(185,28,28,0.025)' : isPrimary ? 'var(--surface)' : 'var(--surface)'
-  const leftBarColor = isExecuting ? 'var(--accent)' : isCompleted ? 'var(--success)' : isCritical ? 'var(--danger)' : isPrimary ? 'var(--accent)' : 'transparent'
-  const borderColor = isExecuting ? 'rgba(29,78,216,0.3)' : isCompleted ? 'var(--success-border)' : isCritical ? 'var(--danger-border)' : isPrimary ? 'var(--border-strong)' : 'var(--border)'
-  const boxShadow = isExecuting ? '0 4px 20px rgba(29,78,216,0.1), var(--shadow-sm)' : isCritical ? 'var(--card-shadow-critical)' : isPrimary ? 'var(--card-shadow-primary)' : 'var(--shadow-sm)'
-  const padding = isPrimary ? '20px 22px' : '16px 18px'
-  const titleSize = isPrimary ? 17 : 15
-  const titleWeight = isPrimary ? 700 : 600
+  // Card border
+  const borderColor = isExecuting ? 'rgba(29,78,216,0.32)' : isCompleted ? T.successBorder : isCritical ? T.dangerBorder : isPrimary ? 'var(--border-strong)' : 'var(--border)'
+
+  // Card shadow
+  const boxShadow = isExecuting ? `0 6px 24px rgba(29,78,216,0.1), ${T.shadowMd}` : isCritical ? `${T.dangerGlow}, ${T.shadowSm}` : isPrimary ? T.shadowMd : T.shadowSm
+
+  // Card bg
+  const cardBg = isCritical ? 'rgba(196,30,30,0.025)' : 'var(--surface)'
+
+  // Padding
+  const px = isPrimary ? '26px' : '20px'
+  const py = isPrimary ? '22px' : '16px'
+  const leftPad = leftBar !== 'transparent' ? (isPrimary ? '28px' : '22px') : undefined
 
   return (
     <div
-      style={{ background: cardBg, border: `1.5px solid ${borderColor}`, borderRadius: 16, overflow: 'hidden', boxShadow, transition: 'all 0.2s ease', position: 'relative' }}
-      onMouseEnter={e => { if (cardState === 'pending') (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)' }}
+      style={{ background: cardBg, border: `1.5px solid ${borderColor}`, borderRadius: 16, overflow: 'hidden', boxShadow, transition: 'transform 0.2s ease, box-shadow 0.2s ease', position: 'relative' }}
+      onMouseEnter={e => { if (cardState === 'pending') { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = isCritical ? `${T.dangerGlow}, ${T.shadowLg}` : isPrimary ? T.shadowLg : T.shadowMd } }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = boxShadow }}
     >
       {/* Left accent bar */}
-      {leftBarColor !== 'transparent' && (
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: leftBarColor, borderRadius: '16px 0 0 16px' }} />
+      {leftBar !== 'transparent' && (
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: leftBar, zIndex: 1 }} />
       )}
 
-      {/* State banners */}
+      {/* Banners */}
       {isExecuting && (
-        <div style={{ background: 'var(--accent)', padding: '5px 18px 5px 22px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'white' }} className="animate-pulse-dot" />
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'white', letterSpacing: 0.5 }}>EXECUTING</span>
+        <div style={{ background: T.accent, padding: '6px 20px 6px 24px', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'white', animation: 'dashPulse 1.5s ease-in-out infinite' }} />
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'white', letterSpacing: 0.8 }}>EXECUTING</span>
           <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginLeft: 'auto' }}>{execution?.progress}% complete</span>
         </div>
       )}
       {isCompleted && (
-        <div style={{ background: 'var(--success)', padding: '5px 18px 5px 22px', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: T.success, padding: '6px 20px 6px 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <CheckCircle size={11} style={{ color: 'white' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>EXECUTION COMPLETE</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'white', letterSpacing: 0.5 }}>EXECUTION COMPLETE</span>
         </div>
       )}
       {isCritical && cardState === 'pending' && (
-        <div style={{ background: 'var(--danger)', padding: '5px 18px 5px 22px', display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ background: T.danger, padding: '6px 20px 6px 24px', display: 'flex', alignItems: 'center', gap: 7 }}>
           <AlertTriangle size={11} style={{ color: 'white' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'white', letterSpacing: 0.3 }}>BLOCKING EXECUTION — RESOLVE NOW</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'white', letterSpacing: 0.5 }}>BLOCKING EXECUTION — RESOLVE NOW</span>
         </div>
       )}
 
       {/* Header */}
-      <div style={{ padding, paddingLeft: leftBarColor !== 'transparent' ? (isPrimary ? '26px' : '22px') : undefined, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
+      <div style={{ padding: `${py} ${px}`, paddingLeft: leftPad ?? px, cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, flexWrap: 'wrap' as const }}>
-              {(dec.delay_count || 0) > 0 && <span className="badge badge-danger">Stalled {dec.delay_count}×</span>}
-              {isPrimary && cardState === 'pending' && !isCritical && <span className="badge badge-accent">Priority</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8, flexWrap: 'wrap' as const }}>
+              {(dec.delay_count || 0) > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: T.dangerBg, color: T.danger, border: `1px solid ${T.dangerBorder}` }}>Stalled {dec.delay_count}×</span>
+              )}
+              {isPrimary && cardState === 'pending' && !isCritical && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: T.accentLight, color: T.accent, border: `1px solid ${T.accentMid}` }}>Priority</span>
+              )}
             </div>
-            <div style={{ fontSize: titleSize, fontWeight: titleWeight, color: 'var(--text)', lineHeight: 1.3, marginBottom: 5, letterSpacing: -0.2 }}>{dec.title}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{dec.context}</div>
+            <div style={{ fontSize: isPrimary ? 20 : 16, fontWeight: isPrimary ? 700 : 650, color: 'var(--text)', lineHeight: 1.3, marginBottom: 6, letterSpacing: -0.3 }}>{dec.title}</div>
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{dec.context}</div>
           </div>
-          <div style={{ flexShrink: 0, textAlign: 'right' as const }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: recColor, background: recColor + '12', padding: '5px 11px', borderRadius: 100, marginBottom: 4, whiteSpace: 'nowrap' as const, border: `1px solid ${recColor}25` }}>{recLabel}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{dec.confidence_score}% confidence</div>
-            <div style={{ marginTop: 6 }}>{expanded ? <ChevronUp size={13} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronDown size={13} style={{ color: 'var(--text-tertiary)' }} />}</div>
+          <div style={{ flexShrink: 0, textAlign: 'right' as const, paddingTop: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: recColor, background: recColor + '12', padding: '5px 12px', borderRadius: 100, marginBottom: 5, whiteSpace: 'nowrap' as const, border: `1px solid ${recColor}28` }}>{recLabel}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>{dec.confidence_score}% confidence</div>
+            <div style={{ marginTop: 7 }}>{expanded ? <ChevronUp size={13} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronDown size={13} style={{ color: 'var(--text-tertiary)' }} />}</div>
           </div>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: `0 ${isPrimary ? '22px' : '18px'} ${isPrimary ? '20px' : '16px'}`, paddingLeft: leftBarColor !== 'transparent' ? (isPrimary ? '26px' : '22px') : undefined, borderTop: '1px solid var(--border)' }} className="animate-slide-down">
-          <div style={{ paddingTop: 16 }}>
+        <div style={{ padding: `0 ${px} ${py}`, paddingLeft: leftPad ?? px, borderTop: '1px solid var(--border)' }}>
+          <div style={{ paddingTop: 18 }}>
 
             {(dec.delay_count || 0) >= 2 && cardState === 'pending' && (
-              <div style={{ padding: '10px 14px', background: 'var(--danger-bg)', borderRadius: 10, marginBottom: 14, border: '1px solid var(--danger-border)' }}>
-                <p style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 650, lineHeight: 1.5 }}>⛔ Stalled {dec.delay_count} times. Compounding daily. Resolve now.</p>
+              <div style={{ padding: '11px 14px', background: T.dangerBg, borderRadius: 11, marginBottom: 16, border: `1px solid ${T.dangerBorder}` }}>
+                <p style={{ fontSize: 13, color: T.danger, fontWeight: 700, lineHeight: 1.5 }}>⛔ Stalled {dec.delay_count} times. Compounding every day. Resolve now.</p>
               </div>
             )}
 
-            <div style={{ marginBottom: 14 }}>
-              <div className="text-label" style={{ marginBottom: 7 }}>Why this is blocking you</div>
-              <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.65 }}>{dec.reasoning}</p>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.9, textTransform: 'uppercase' as const, color: 'var(--text-tertiary)', marginBottom: 8 }}>Why this is blocking you</div>
+              <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.68, fontWeight: 400 }}>{dec.reasoning}</p>
             </div>
 
-            <div style={{ padding: '11px 14px', background: 'var(--purple-bg)', borderRadius: 11, border: '1px solid var(--purple-border)', marginBottom: 13 }}>
-              <div className="text-label" style={{ color: 'var(--purple)', marginBottom: 9 }}>🔗 This Decision Unlocks</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 6 }}>
-                {unlocks.map((u, i) => <span key={i} className="badge badge-purple">{u}</span>)}
+            {/* Unlocks */}
+            <div style={{ padding: '12px 14px', background: T.purpleBg, borderRadius: 12, border: `1px solid ${T.purpleBorder}`, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.purple, textTransform: 'uppercase' as const, letterSpacing: 0.9, marginBottom: 10 }}>🔗 This Decision Unlocks</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 7 }}>
+                {unlocks.map((u, i) => (
+                  <span key={i} style={{ fontSize: 12, fontWeight: 600, color: T.purple, background: T.purpleBg, border: `1px solid ${T.purpleBorder}`, borderRadius: 100, padding: '3px 10px' }}>{u}</span>
+                ))}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 14 }}>
-              <div style={{ padding: '11px 13px', background: 'var(--success-bg)', borderRadius: 11, border: '1px solid var(--success-border)' }}>
-                <div className="text-label" style={{ color: 'var(--success)', marginBottom: 6 }}>Execute → Gain</div>
-                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>{dec.expected_impact_approve}</p>
+            {/* Impact */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div style={{ padding: '12px 14px', background: T.successBg, borderRadius: 12, border: `1px solid ${T.successBorder}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.success, marginBottom: 7, letterSpacing: 0.6, textTransform: 'uppercase' as const }}>Execute → Gain</div>
+                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{dec.expected_impact_approve}</p>
               </div>
-              <div style={{ padding: '11px 13px', background: 'var(--danger-bg)', borderRadius: 11, border: '1px solid var(--danger-border)' }}>
-                <div className="text-label" style={{ color: 'var(--danger)', marginBottom: 6 }}>Ignore → Cost</div>
-                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>{dec.expected_impact_reject}</p>
+              <div style={{ padding: '12px 14px', background: T.dangerBg, borderRadius: 12, border: `1px solid ${T.dangerBorder}` }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.danger, marginBottom: 7, letterSpacing: 0.6, textTransform: 'uppercase' as const }}>Ignore → Cost</div>
+                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{dec.expected_impact_reject}</p>
               </div>
             </div>
 
+            {/* Execution state */}
             {isExecuting && execution && (
-              <div style={{ marginBottom: 14 }} className="animate-slide-down">
-                <div className="text-label" style={{ marginBottom: 11 }}>🔵 Execution in Progress</div>
-                <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.9, textTransform: 'uppercase' as const, color: T.accent, marginBottom: 12 }}>🔵 Execution in Progress</div>
+                <div style={{ marginBottom: 14 }}>
                   {execution.tasks.map(task => <TaskRow key={task.id} task={task} onToggle={handleToggleTask} />)}
                 </div>
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.6 }}>Progress</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>{execution.progress}%</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: 0.6 }}>Progress</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>{execution.progress}%</span>
                   </div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${execution.progress}%`, background: execution.progress === 100 ? 'var(--success)' : 'var(--accent)' }} />
+                  <div style={{ height: 5, background: 'var(--surface3)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${execution.progress}%`, background: execution.progress === 100 ? T.success : `linear-gradient(90deg, ${T.accent}, #3b82f6)`, borderRadius: 4, transition: 'width 0.6s cubic-bezier(0.34,1.2,0.64,1)' }} />
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>{execution.completedCount} of {execution.tasks.length} tasks · Checkpoint: {execution.nextCheckpoint}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 7 }}>{execution.completedCount} of {execution.tasks.length} tasks · Checkpoint: {execution.nextCheckpoint}</div>
                 </div>
               </div>
             )}
 
             {isCompleted && (
-              <div style={{ marginBottom: 14, padding: '12px 14px', background: 'var(--success-bg)', borderRadius: 11, border: '1px solid var(--success-border)' }}>
-                <div style={{ fontSize: 14, fontWeight: 650, color: 'var(--success)', marginBottom: 3 }}>✓ All tasks complete</div>
+              <div style={{ marginBottom: 16, padding: '13px 15px', background: T.successBg, borderRadius: 12, border: `1px solid ${T.successBorder}` }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.success, marginBottom: 4 }}>✓ All tasks complete</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Decision executed and logged for accuracy scoring.</div>
               </div>
             )}
 
+            {/* Action buttons */}
             {cardState === 'pending' && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                  <button onClick={handleApprove} disabled={acting} className="btn btn-success" style={{ padding: isPrimary ? '12px 0' : '11px 0', fontSize: isPrimary ? 15 : 14, justifyContent: 'center', width: '100%' }}>
-                    <CheckCircle size={isPrimary ? 15 : 13} />
-                    {isPrimary ? 'Approve & Execute' : 'Approve'}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 9 }}>
+                  {/* APPROVE — dominant */}
+                  <button onClick={handleApprove} disabled={acting} style={{ padding: isPrimary ? '13px 0' : '11px 0', background: T.successBtn, color: 'white', border: 'none', borderRadius: 11, fontSize: isPrimary ? 15 : 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.15s', boxShadow: `0 3px 10px rgba(21,128,61,0.3)`, letterSpacing: -0.2 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.successHover; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 5px 16px rgba(21,128,61,0.38)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.successBtn; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 3px 10px rgba(21,128,61,0.3)' }}>
+                    <CheckCircle size={isPrimary ? 15 : 13} />Approve & Execute
                   </button>
-                  <button onClick={handleReject} className="btn btn-danger" style={{ padding: isPrimary ? '12px 0' : '11px 0', fontSize: isPrimary ? 15 : 14, justifyContent: 'center', width: '100%' }}>
+                  <button onClick={handleReject} style={{ padding: isPrimary ? '13px 0' : '11px 0', background: 'transparent', color: T.danger, border: `1.5px solid ${T.dangerBorder}`, borderRadius: 11, fontSize: isPrimary ? 15 : 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.dangerBg; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.transform = 'translateY(0)' }}>
                     ✗ Reject
                   </button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button className="btn btn-ghost" style={{ padding: '9px 0', fontSize: 13, justifyContent: 'center', width: '100%' }}>👤 Delegate</button>
-                  <button onClick={handleDelay} className="btn btn-danger" style={{ padding: '9px 0', fontSize: 13, justifyContent: 'center', width: '100%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                  <button style={{ padding: '9px 0', background: 'var(--surface2)', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s' }}>👤 Delegate</button>
+                  <button onClick={handleDelay} style={{ padding: '9px 0', background: 'transparent', color: T.danger, border: `1px solid ${T.dangerBorder}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.12s' }}>
                     ⏸ Delay {(dec.delay_count || 0) > 0 ? `(${dec.delay_count + 1}×)` : ''}
                   </button>
                 </div>
@@ -368,7 +420,6 @@ function DecisionCard({ dec, health, onAction, isPrimary }: {
 }
 
 // ── Decision Memory ─────────────────────────────────────────
-
 function DecisionMemory({ decisions }: { decisions: any[] }) {
   const [open, setOpen] = useState(false)
   if (decisions.length === 0) return null
@@ -376,33 +427,33 @@ function DecisionMemory({ decisions }: { decisions: any[] }) {
   const accurate = resolved.filter(d => d.matched === true).length
   const rate = resolved.length > 0 ? Math.round((accurate / resolved.length) * 100) : null
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-      <button onClick={() => setOpen(!open)} style={{ width: '100%', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', boxShadow: T.shadowSm }}>
+      <button onClick={() => setOpen(!open)} style={{ width: '100%', padding: '15px 20px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <BarChart2 size={15} style={{ color: 'var(--accent)' }} />
-          <span style={{ fontSize: 14, fontWeight: 650, color: 'var(--text)' }}>Decision Performance</span>
-          {rate !== null && <span className="badge badge-accent">{rate}% accuracy</span>}
+          <BarChart2 size={15} style={{ color: T.accent }} />
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.2 }}>Decision Performance</span>
+          {rate !== null && <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 9px', borderRadius: 100, background: T.accentLight, color: T.accent, border: `1px solid ${T.accentMid}` }}>{rate}% accuracy</span>}
         </div>
         {open ? <ChevronUp size={14} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-tertiary)' }} />}
       </button>
       {open && (
-        <div style={{ padding: '0 18px 18px', borderTop: '1px solid var(--border)' }} className="animate-slide-down">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 9, marginTop: 14, marginBottom: 14 }}>
-            {[{ label: 'Total', value: decisions.length }, { label: 'Resolved', value: resolved.length }, { label: 'Accuracy', value: rate !== null ? `${rate}%` : '—' }].map(s => (
-              <div key={s.label} style={{ background: 'var(--surface2)', borderRadius: 11, padding: '12px', textAlign: 'center' as const, border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.5 }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3 }}>{s.label}</div>
+        <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 16, marginBottom: 16 }}>
+            {[{ l: 'Total', v: decisions.length }, { l: 'Resolved', v: resolved.length }, { l: 'Accuracy', v: rate !== null ? `${rate}%` : '—' }].map(s => (
+              <div key={s.l} style={{ background: 'var(--surface2)', borderRadius: 12, padding: '14px', textAlign: 'center' as const, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.5 }}>{s.v}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 3, fontWeight: 500 }}>{s.l}</div>
               </div>
             ))}
           </div>
           {decisions.slice(0, 5).map(d => (
-            <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', background: 'var(--surface2)', borderRadius: 9, marginBottom: 6, border: '1px solid var(--border)' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: d.action === 'approved' ? 'var(--success)' : d.action === 'rejected' ? 'var(--danger)' : 'var(--text-tertiary)', flexShrink: 0 }} />
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 12px', background: 'var(--surface2)', borderRadius: 10, marginBottom: 6, border: '1px solid var(--border)' }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: d.action === 'approved' ? T.success : d.action === 'rejected' ? T.danger : 'var(--text-tertiary)', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{d.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{d.title}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{d.action} · {d.date}</div>
               </div>
-              {d.matched !== undefined && <span style={{ fontSize: 12, fontWeight: 700, color: d.matched ? 'var(--success)' : 'var(--danger)' }}>{d.matched ? '✓' : '✗'}</span>}
+              {d.matched !== undefined && <span style={{ fontSize: 12, fontWeight: 700, color: d.matched ? T.success : T.danger }}>{d.matched ? '✓' : '✗'}</span>}
             </div>
           ))}
         </div>
@@ -412,7 +463,6 @@ function DecisionMemory({ decisions }: { decisions: any[] }) {
 }
 
 // ── Main Page ────────────────────────────────────────────────
-
 export default function CommandCentrePage() {
   const [profile, setProfile] = useState<any>(null)
   const [health, setHealth] = useState<BusinessHealth | null>(null)
@@ -506,15 +556,15 @@ export default function CommandCentrePage() {
   const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <div style={{ padding: '26px 26px', maxWidth: 1120, margin: '0 auto', paddingBottom: 140 }}>
+    <div style={{ padding: '28px', maxWidth: 1120, margin: '0 auto', paddingBottom: 140 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 26 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.7, marginBottom: 4, lineHeight: 1.1 }}>{getGreeting(profile?.full_name)}</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>{today}{profile?.business_name ? ` · ${profile.business_name}` : ''}</p>
+          <h1 style={{ fontSize: 34, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.9, marginBottom: 5, lineHeight: 1.05 }}>{getGreeting(profile?.full_name)}</h1>
+          <p style={{ fontSize: 14, color: 'var(--text-tertiary)', fontWeight: 400 }}>{today}{profile?.business_name ? ` · ${profile.business_name}` : ''}</p>
         </div>
-        <button onClick={runAnalysis} disabled={analysing} className="btn btn-primary" style={{ padding: '10px 18px' }}>
+        <button onClick={runAnalysis} disabled={analysing} style={{ display: 'flex', alignItems: 'center', gap: 8, background: analysing ? 'var(--surface2)' : T.accent, color: analysing ? 'var(--text-secondary)' : 'white', border: analysing ? '1px solid var(--border)' : 'none', borderRadius: 12, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: analysing ? 'not-allowed' : 'pointer', boxShadow: analysing ? 'none' : `0 2px 8px ${T.accentMid}`, transition: 'all 0.15s', letterSpacing: -0.2 }}>
           <RefreshCw size={13} style={{ animation: analysing ? 'spin 0.65s linear infinite' : 'none' }} />
           {analysing ? 'Analysing...' : 'Run Analysis'}
         </button>
@@ -522,34 +572,36 @@ export default function CommandCentrePage() {
 
       {/* Critical banner */}
       {criticalAlerts.length > 0 && (
-        <div style={{ background: 'var(--danger-bg)', border: '1.5px solid var(--danger-border)', borderRadius: 13, padding: '12px 16px', marginBottom: 22, display: 'flex', alignItems: 'center', gap: 11 }}>
-          <AlertTriangle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+        <div style={{ background: T.dangerBg, border: `1.5px solid ${T.dangerBorder}`, borderRadius: 13, padding: '13px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AlertTriangle size={16} style={{ color: T.danger, flexShrink: 0 }} />
           <div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>{criticalAlerts.length} critical issue{criticalAlerts.length > 1 ? 's' : ''} blocking execution: </span>
-            <span style={{ fontSize: 14, color: 'var(--text)' }}>{criticalAlerts.map((a: any) => a.title).join(' · ')}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: T.danger }}>{criticalAlerts.length} critical issue{criticalAlerts.length > 1 ? 's' : ''} blocking execution: </span>
+            <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500 }}>{criticalAlerts.map((a: any) => a.title).join(' · ')}</span>
           </div>
         </div>
       )}
 
       <TodaysCommand data={oneMoveData} onExecute={() => toast('Click Approve & Execute on your highest priority decision')} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 348px', gap: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 356px', gap: 24 }}>
 
         {/* Left */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
-              <Zap size={16} style={{ color: 'var(--accent)' }} />
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.2 }}>AI Decisions Required</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <Zap size={17} style={{ color: T.accent }} />
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.3 }}>AI Decisions Required</h2>
               {pendingDecisions.length > 0 && (
-                <span className={`badge ${pendingDecisions.some(d => d.urgency === 'critical') ? 'badge-danger' : 'badge-accent'}`}>{pendingDecisions.length}</span>
+                <span style={{ background: pendingDecisions.some(d => d.urgency === 'critical') ? T.danger : T.accent, color: 'white', fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 100 }}>
+                  {pendingDecisions.length}
+                </span>
               )}
             </div>
             {pendingDecisions.length === 0 ? (
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '32px 22px', textAlign: 'center' as const, boxShadow: 'var(--shadow-xs)' }}>
-                <CheckCircle size={22} style={{ color: 'var(--success)', margin: '0 auto 11px' }} />
-                <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>No execution blocked. Run analysis to surface decisions.</p>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '36px 24px', textAlign: 'center' as const, boxShadow: T.shadowSm }}>
+                <CheckCircle size={24} style={{ color: T.success, margin: '0 auto 12px' }} />
+                <p style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 500 }}>No execution blocked. Run analysis to surface decisions.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -561,9 +613,9 @@ export default function CommandCentrePage() {
           </div>
 
           {accountabilityData?.pressure_message && (
-            <div style={{ background: 'var(--surface)', border: '1.5px solid var(--warning-border)', borderRadius: 14, padding: '16px 20px', boxShadow: 'var(--shadow-xs)' }}>
-              <div className="text-label" style={{ color: 'var(--warning)', marginBottom: 9 }}>Cervio is watching</div>
-              <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.65, fontWeight: 500 }}>{accountabilityData.pressure_message}</p>
+            <div style={{ background: 'var(--surface)', border: `1.5px solid ${T.warningBorder}`, borderRadius: 14, padding: '18px 22px', boxShadow: T.shadowSm }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.warning, letterSpacing: 1.2, textTransform: 'uppercase' as const, marginBottom: 10 }}>Cervio is watching</div>
+              <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.68, fontWeight: 500 }}>{accountabilityData.pressure_message}</p>
               {accountabilityData.avoidance_patterns?.map((p: string, i: number) => (
                 <div key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>• {p}</div>
               ))}
@@ -572,7 +624,7 @@ export default function CommandCentrePage() {
 
           <DecisionMemory decisions={resolvedDecisions} />
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 9 }}>
             {[
               { href: '/dashboard/decisions', label: 'Decisions', icon: '⚡' },
               { href: '/dashboard/goals', label: 'Goals', icon: '◎' },
@@ -580,56 +632,56 @@ export default function CommandCentrePage() {
               { href: '/dashboard/stakeholders', label: 'Stakeholders', icon: '◈' },
             ].map(item => (
               <Link key={item.href} href={item.href}
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 13px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s', boxShadow: 'var(--shadow-xs)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-md)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-xs)' }}>
-                <span style={{ fontSize: 14 }}>{item.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{item.label}</span>
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '13px 14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, transition: 'all 0.15s', boxShadow: T.shadowSm }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = T.shadowMd }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = T.shadowSm }}>
+                <span style={{ fontSize: 15 }}>{item.icon}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
               </Link>
             ))}
           </div>
         </div>
 
         {/* Right */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Business Health */}
-          <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', padding: '20px', boxShadow: 'var(--shadow-sm)' }}>
-            <div className="text-label" style={{ marginBottom: 16 }}>Business Health</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', padding: '22px', boxShadow: T.shadowMd }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 18 }}>Business Health</div>
             {health ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
                   <ScoreRing score={health.overall_score} color={scoreColor(health.overall_score)} />
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: scoreColor(health.overall_score), marginBottom: 3 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: scoreColor(health.overall_score), marginBottom: 4, letterSpacing: -0.3 }}>
                       {health.overall_score >= 70 ? 'Healthy' : health.overall_score >= 45 ? 'Needs attention' : 'Critical — act now'}
                     </div>
-                    <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
-                      With fixes → <span style={{ color: 'var(--success)', fontWeight: 700 }}>{health.projected_score_after_actions}</span>
+                    <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                      With fixes → <span style={{ color: T.success, fontWeight: 800 }}>{health.projected_score_after_actions}</span>
                     </div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 16 }}>
                   {[{ label: 'Revenue', score: health.revenue_score }, { label: 'Execution', score: health.execution_score }, { label: 'Team', score: health.team_score }, { label: 'Risk', score: health.risk_score }].map(({ label, score }) => (
-                    <div key={label} style={{ background: 'var(--surface2)', borderRadius: 11, padding: '11px 13px', border: '1px solid var(--border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{label}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: scoreColor(score) }}>{score}</span>
+                    <div key={label} style={{ background: 'var(--surface2)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: scoreColor(score) }}>{score}</span>
                       </div>
-                      <div className="progress-track">
-                        <div className="progress-fill" style={{ width: `${score}%`, background: scoreColor(score) }} />
+                      <div style={{ height: 4, background: 'var(--surface3)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${score}%`, background: scoreColor(score), borderRadius: 3, transition: 'width 0.8s cubic-bezier(0.34,1.1,0.64,1)' }} />
                       </div>
                     </div>
                   ))}
                 </div>
                 {health.critical_factors?.slice(0, 2).map((f, i) => (
-                  <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 5, paddingLeft: 11, borderLeft: '2.5px solid var(--danger)', lineHeight: 1.55 }}>{f}</div>
+                  <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 5, paddingLeft: 12, borderLeft: `2.5px solid ${T.danger}`, lineHeight: 1.6, fontWeight: 500 }}>{f}</div>
                 ))}
               </>
             ) : (
-              <div style={{ textAlign: 'center' as const, padding: '18px 0' }}>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 13 }}>Run analysis to score your business.</p>
-                <button onClick={runAnalysis} disabled={analysing} className="btn btn-primary" style={{ fontSize: 13, padding: '8px 18px' }}>
+              <div style={{ textAlign: 'center' as const, padding: '20px 0' }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14, fontWeight: 500 }}>Run analysis to score your business.</p>
+                <button onClick={runAnalysis} disabled={analysing} style={{ fontSize: 13, color: T.accent, background: T.accentLight, border: `1px solid ${T.accentMid}`, borderRadius: 9, padding: '8px 18px', cursor: 'pointer', fontWeight: 700, transition: 'all 0.12s' }}>
                   {analysing ? 'Analysing...' : 'Run Analysis →'}
                 </button>
               </div>
@@ -637,23 +689,25 @@ export default function CommandCentrePage() {
           </div>
 
           {/* Risks */}
-          <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', padding: '20px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <Shield size={14} style={{ color: 'var(--danger)' }} />
-              <div className="text-label">Immediate Risks</div>
-              {riskAlerts.length > 0 && <span className="badge badge-danger" style={{ marginLeft: 'auto' }}>{riskAlerts.length}</span>}
+          <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', padding: '22px', boxShadow: T.shadowSm }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
+              <Shield size={15} style={{ color: T.danger }} />
+              <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase' as const, letterSpacing: 1 }}>Immediate Risks</div>
+              {riskAlerts.length > 0 && (
+                <span style={{ background: T.danger, color: 'white', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 100, marginLeft: 'auto' }}>{riskAlerts.length}</span>
+              )}
             </div>
             {riskAlerts.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center' as const, padding: '8px 0' }}>No active risks. Run analysis to check.</p>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center' as const, padding: '8px 0', fontWeight: 500 }}>No active risks. Run analysis to check.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {riskAlerts.slice(0, 4).map((alert: any) => (
-                  <div key={alert.id} style={{ padding: '11px 13px', background: 'var(--surface2)', borderRadius: 11, borderLeft: `3px solid ${alert.severity === 'critical' ? 'var(--danger)' : alert.severity === 'high' ? 'var(--warning)' : 'var(--accent)'}`, border: '1px solid var(--border)', borderLeftWidth: '3px' }}>
+                  <div key={alert.id} style={{ padding: '11px 13px', background: 'var(--surface2)', borderRadius: 11, borderLeft: `3px solid ${alert.severity === 'critical' ? T.danger : alert.severity === 'high' ? T.warning : T.accent}`, border: '1px solid var(--border)', borderLeftWidth: '3px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 650, color: 'var(--text)', marginBottom: 3 }}>{alert.title}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{alert.title}</div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55 }}>{alert.description}</div>
-                        {alert.recommended_action && <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, marginTop: 5 }}>→ {alert.recommended_action}</div>}
+                        {alert.recommended_action && <div style={{ fontSize: 12, color: T.accent, fontWeight: 700, marginTop: 5 }}>→ {alert.recommended_action}</div>}
                       </div>
                       <button onClick={() => dismissAlert(alert.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 18, padding: 0, lineHeight: 1, flexShrink: 0, borderRadius: 4, transition: 'color 0.12s' }}>×</button>
                     </div>
@@ -668,8 +722,9 @@ export default function CommandCentrePage() {
       <AICervioPanel decisions={pendingDecisions} analysing={analysing} onAnalyse={runAnalysis} />
 
       <style>{`
-        @keyframes aiPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.65)} }
+        @keyframes dashPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.65)} }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes cmdGlow { 0%,100%{opacity:1} 50%{opacity:0.6} }
       `}</style>
     </div>
   )
