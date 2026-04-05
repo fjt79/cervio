@@ -1,337 +1,227 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import {
-  RefreshCw, ChevronRight, TrendingUp, TrendingDown,
-  CheckCircle, AlertCircle, Target, Zap, Calendar,
-  ArrowLeft, ChevronDown, ChevronUp, Star
-} from 'lucide-react'
-import Link from 'next/link'
+import { RefreshCw, Star, ChevronDown, ChevronUp, TrendingUp, TrendingDown, CheckCircle, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-interface WeeklyReview {
-  week_score: number
-  week_label: string
-  opening: string
-  wins: string[]
-  misses: string[]
-  goal_updates: Array<{ title: string; progress: number; assessment: string; status: string }>
-  key_decisions: string[]
-  patterns: string
-  next_week_focus: string[]
-  challenge: string
-  closing: string
+const T = {
+  danger: '#c41e1e', dangerBg: 'rgba(196,30,30,0.07)', dangerBorder: 'rgba(196,30,30,0.22)',
+  success: '#146c34', successBg: 'rgba(20,108,52,0.07)', successBorder: 'rgba(20,108,52,0.22)',
+  accent: '#1d4ed8', accentLight: 'rgba(29,78,216,0.09)', accentMid: 'rgba(29,78,216,0.18)',
+  warning: '#a16207', warningBg: 'rgba(161,98,7,0.07)', warningBorder: 'rgba(161,98,7,0.2)',
+  shadowSm: '0 2px 6px rgba(10,10,11,0.07)', shadowMd: '0 6px 18px rgba(10,10,11,0.09)',
 }
 
-interface SavedReview {
-  id: string
-  week_start: string
-  week_end: string
-  week_score: number
-  content: WeeklyReview
-  created_at: string
-}
+function scoreColor(s: number) { return s >= 70 ? T.success : s >= 45 ? T.warning : T.danger }
 
-function getScoreColor(score: number) {
-  if (score >= 80) return '#4ade80'
-  if (score >= 60) return '#c9a96e'
-  if (score >= 40) return '#fbbf24'
-  return '#f87171'
-}
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'on_track': return '#4ade80'
-    case 'completed': return '#7c6ef0'
-    case 'at_risk': return '#fbbf24'
-    case 'behind': return '#f87171'
-    default: return '#6b6b80'
-  }
-}
-
-function getStatusLabel(status: string) {
-  switch (status) {
-    case 'on_track': return 'On track'
-    case 'completed': return 'Completed'
-    case 'at_risk': return 'At risk'
-    case 'behind': return 'Behind'
-    default: return status
-  }
+function PastReviewCard({ review }: { review: any }) {
+  const [expanded, setExpanded] = useState(false)
+  const color = scoreColor(review.week_score || 0)
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: T.shadowSm, marginBottom: 10 }}>
+      <button onClick={() => setExpanded(!expanded)} style={{ width: '100%', padding: '16px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color, minWidth: 44 }}>{review.week_score}</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{review.week_label || 'Week review'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>{review.week_start ? `${new Date(review.week_start).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} — ${new Date(review.week_end).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : '—'}</div>
+          </div>
+        </div>
+        {expanded ? <ChevronUp size={14} style={{ color: 'var(--text-tertiary)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-tertiary)' }} />}
+      </button>
+      {expanded && (
+        <div style={{ padding: '0 18px 16px', borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {review.opening && <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.68 }}>{review.opening}</p>}
+          {review.wins?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.success, textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 8 }}>Wins</div>
+              {review.wins.map((w: string, i: number) => <div key={i} style={{ padding: '8px 12px', background: T.successBg, borderRadius: 9, border: `1px solid ${T.successBorder}`, fontSize: 13, color: 'var(--text)', marginBottom: 6, lineHeight: 1.55 }}>✓ {w}</div>)}
+            </div>
+          )}
+          {review.misses?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.danger, textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 8 }}>Misses</div>
+              {review.misses.map((m: string, i: number) => <div key={i} style={{ padding: '8px 12px', background: T.dangerBg, borderRadius: 9, border: `1px solid ${T.dangerBorder}`, fontSize: 13, color: 'var(--text)', marginBottom: 6, lineHeight: 1.55 }}>✗ {m}</div>)}
+            </div>
+          )}
+          {review.next_week_focus?.length > 0 && (
+            <div style={{ padding: '13px 15px', background: T.accentLight, borderRadius: 11, border: `1px solid ${T.accentMid}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 8 }}>Next Week Focus</div>
+              {review.next_week_focus.map((f: string, i: number) => <div key={i} style={{ fontSize: 13, color: 'var(--text)', marginBottom: 5, lineHeight: 1.55 }}>→ {f}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function WeeklyReviewPage() {
-  const [review, setReview] = useState<WeeklyReview | null>(null)
-  const [pastReviews, setPastReviews] = useState<SavedReview[]>([])
+  const [review, setReview] = useState<any>(null)
+  const [savedReviews, setSavedReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingHistory, setLoadingHistory] = useState(true)
-  const [expandedPast, setExpandedPast] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [tab, setTab] = useState<'current'|'history'>('current')
 
   useEffect(() => { loadHistory() }, [])
 
-  const getHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
-    return { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
-  }
-
   const loadHistory = async () => {
-    try {
-      const headers = await getHeaders()
-      const res = await fetch('/api/weekly-review', { headers })
-      const data = await res.json()
-      if (res.ok) setPastReviews(data.reviews)
-    } catch {}
-    setLoadingHistory(false)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('weekly_reviews').select('*').eq('user_id', user.id).order('week_start', { ascending: false }).limit(12)
+    setSavedReviews(data || [])
   }
 
   const generateReview = async () => {
     setLoading(true)
     try {
-      const headers = await getHeaders()
-      const res = await fetch('/api/weekly-review', { method: 'POST', headers })
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/weekly-review', { method: 'POST', headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' } })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setReview(data.review)
-      loadHistory()
-      toast.success('Weekly review generated!')
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to generate review')
-    } finally {
-      setLoading(false)
-    }
+      toast.success('Review generated')
+    } catch (err: any) { toast.error(err.message || 'Failed to generate') }
+    finally { setLoading(false) }
   }
 
-  const scoreColor = review ? getScoreColor(review.week_score) : '#6b6b80'
-  const weekRange = () => {
-    const now = new Date()
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    return `${weekAgo.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })} — ${now.toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  const saveReview = async () => {
+    if (!review) return
+    setSaving(true)
+    try {
+      const { data: { user } } = await supabase.auth.getSession().then(r => supabase.auth.getUser())
+      if (!user) return
+      const now = new Date()
+      const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay() + 1)
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6)
+      const { error } = await supabase.from('weekly_reviews').insert({ user_id: user.id, ...review, week_start: weekStart.toISOString().split('T')[0], week_end: weekEnd.toISOString().split('T')[0], created_at: now.toISOString() })
+      if (error) throw error
+      toast.success('Review saved')
+      loadHistory()
+    } catch (err: any) { toast.error(err.message) }
+    finally { setSaving(false) }
   }
+
+  const scoreColor2 = review?.week_score ? scoreColor(review.week_score) : T.accent
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-muted hover:text-text text-sm mb-6 transition-colors">
-          <ArrowLeft size={14} />
-          Back to Dashboard
-        </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-text mb-2">Weekly Review</h1>
-            <p className="text-muted text-sm">{weekRange()}</p>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '28px 28px 120px' }}>
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <Star size={22} style={{ color: T.accent }} />
+            <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.8 }}>Weekly Review</h1>
           </div>
-          <button
-            onClick={generateReview}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2 px-5"
-            style={{ width: 'auto' }}
-          >
-            {loading ? <><div className="spinner" />Generating...</> : <><RefreshCw size={14} />Generate Review</>}
-          </button>
+          <p style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>End-of-week intelligence to sharpen next week</p>
         </div>
+        <button onClick={generateReview} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: loading ? 'var(--surface2)' : T.accent, color: loading ? 'var(--text-secondary)' : 'white', border: loading ? '1px solid var(--border)' : 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', boxShadow: loading ? 'none' : '0 2px 8px rgba(29,78,216,0.3)' }}>
+          <RefreshCw size={14} style={{ animation: loading ? 'spin 0.7s linear infinite' : 'none' }} />
+          {loading ? 'Generating...' : 'Generate Review'}
+        </button>
       </div>
 
-      {!review && !loading ? (
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 24, background: 'var(--surface2)', borderRadius: 12, padding: 4 }}>
+        {[['current', 'This Week'], ['history', `History (${savedReviews.length})`]].map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k as any)} style={{ flex: 1, padding: '8px 0', borderRadius: 9, background: tab === k ? 'var(--surface)' : 'transparent', color: tab === k ? 'var(--text)' : 'var(--text-secondary)', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === k ? 700 : 500, boxShadow: tab === k ? '0 1px 4px rgba(0,0,0,0.06)' : 'none', transition: 'all 0.12s' }}>{label}</button>
+        ))}
+      </div>
+
+      {tab === 'current' && (
         <>
-          {/* Empty state */}
-          {pastReviews.length === 0 ? (
-            <div className="card text-center py-16">
-              <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-6">
-                <Star size={28} className="text-accent" />
-              </div>
-              <h2 className="font-display text-2xl font-bold text-text mb-3">Your first weekly review</h2>
-              <p className="text-muted text-sm mb-8 max-w-md mx-auto leading-relaxed">
-                Every Sunday, Cervio reviews your week — goals, decisions, meetings, patterns — and gives you an honest assessment and a clear plan for next week.
-              </p>
-              <button onClick={generateReview} disabled={loading} className="btn-primary mx-auto" style={{ width: 'auto', padding: '10px 32px' }}>
-                {loading ? 'Generating...' : 'Generate This Week\'s Review'}
-              </button>
+          {!review && !loading && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '48px 24px', textAlign: 'center', boxShadow: T.shadowSm }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>★</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>No review yet this week</div>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 24, maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.65 }}>Cervio analyses your week — what you shipped, what slipped, and what you need to focus on next.</p>
+              <button onClick={generateReview} style={{ padding: '12px 28px', background: T.accent, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 8px rgba(29,78,216,0.3)' }}>Generate this week's review</button>
             </div>
-          ) : (
-            // Show most recent past review
-            <div>
-              <p className="text-muted text-sm mb-4">No review for this week yet. Click Generate to create one.</p>
+          )}
+
+          {review && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Score */}
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '24px', boxShadow: T.shadowSm }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1 }}>Week Score</div>
+                  <div style={{ padding: '6px 18px', background: scoreColor2 + '15', color: scoreColor2, borderRadius: 100, fontSize: 15, fontWeight: 800, border: `1px solid ${scoreColor2}28` }}>
+                    {review.week_score}/100 — {review.week_label}
+                  </div>
+                </div>
+                <div style={{ height: 8, background: 'var(--surface3)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${review.week_score}%`, background: scoreColor2, borderRadius: 4 }} />
+                </div>
+              </div>
+
+              {/* Opening */}
+              {review.opening && (
+                <div style={{ background: 'linear-gradient(135deg, #040410 0%, #0a0a28 100%)', borderRadius: 18, padding: '22px 24px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: 10 }}>Cervio's Read</div>
+                  <p style={{ fontSize: 17, fontWeight: 600, color: 'white', lineHeight: 1.6, letterSpacing: -0.2 }}>{review.opening}</p>
+                </div>
+              )}
+
+              {/* Wins & Misses */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {review.wins?.length > 0 && (
+                  <div style={{ background: T.successBg, borderRadius: 16, padding: '18px', border: `1px solid ${T.successBorder}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: T.success, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Wins</div>
+                    {review.wins.slice(0, 4).map((w: string, i: number) => <div key={i} style={{ fontSize: 13, color: 'var(--text)', marginBottom: 7, lineHeight: 1.55, display: 'flex', gap: 7 }}><CheckCircle size={13} style={{ color: T.success, flexShrink: 0, marginTop: 2 }} />{w}</div>)}
+                  </div>
+                )}
+                {review.misses?.length > 0 && (
+                  <div style={{ background: T.dangerBg, borderRadius: 16, padding: '18px', border: `1px solid ${T.dangerBorder}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: T.danger, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Misses</div>
+                    {review.misses.slice(0, 4).map((m: string, i: number) => <div key={i} style={{ fontSize: 13, color: 'var(--text)', marginBottom: 7, lineHeight: 1.55, display: 'flex', gap: 7 }}><AlertCircle size={13} style={{ color: T.danger, flexShrink: 0, marginTop: 2 }} />{m}</div>)}
+                  </div>
+                )}
+              </div>
+
+              {/* Patterns */}
+              {review.patterns && (
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 22px', boxShadow: T.shadowSm }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Pattern Detected</div>
+                  <p style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.68, fontWeight: 500 }}>{review.patterns}</p>
+                </div>
+              )}
+
+              {/* Next week focus */}
+              {review.next_week_focus?.length > 0 && (
+                <div style={{ background: T.accentLight, border: `1px solid ${T.accentMid}`, borderRadius: 16, padding: '20px 22px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Next Week Focus</div>
+                  {review.next_week_focus.map((f: string, i: number) => (
+                    <div key={i} style={{ padding: '10px 14px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', fontSize: 14, color: 'var(--text)', marginBottom: 8, lineHeight: 1.6, fontWeight: 500 }}>→ {f}</div>
+                  ))}
+                </div>
+              )}
+
+              {/* Challenge */}
+              {review.challenge && (
+                <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Closing Thought</div>
+                  <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.65, fontStyle: 'italic' }}>{review.challenge}</p>
+                </div>
+              )}
+
+              <button onClick={saveReview} disabled={saving} style={{ padding: '13px 0', background: T.success, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 2px 8px rgba(20,108,52,0.3)' }}>
+                <CheckCircle size={15} />{saving ? 'Saving...' : 'Save this review'}
+              </button>
             </div>
           )}
         </>
-      ) : review ? (
-        <div className="space-y-4">
-          {/* Score card */}
-          <div className="card" style={{ borderColor: scoreColor + '40', background: scoreColor + '08' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="text-xs font-semibold tracking-widest mb-2" style={{ color: scoreColor }}>WEEK SCORE</div>
-                <div className="flex items-baseline gap-3">
-                  <span className="font-display text-6xl font-bold" style={{ color: scoreColor }}>{review.week_score}</span>
-                  <span className="text-muted">/100</span>
-                </div>
-              </div>
-              <div className="px-4 py-2 rounded-full text-sm font-semibold" style={{ color: scoreColor, background: scoreColor + '20' }}>
-                {review.week_label}
-              </div>
-            </div>
-            <div className="h-2 rounded-full" style={{ background: 'rgba(0,0,0,0.2)' }}>
-              <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${review.week_score}%`, background: scoreColor }} />
-            </div>
-            <p className="text-sm text-muted mt-4 leading-relaxed">{review.opening}</p>
-          </div>
-
-          {/* Wins & Misses */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="card" style={{ borderColor: 'rgba(74,222,128,0.25)', background: 'rgba(74,222,128,0.05)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp size={14} className="text-success" />
-                <span className="text-xs font-semibold tracking-widest text-success">THIS WEEK'S WINS</span>
-              </div>
-              {review.wins.map((win, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <CheckCircle size={12} className="text-success flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-text/90 leading-relaxed">{win}</span>
-                </div>
-              ))}
-            </div>
-            <div className="card" style={{ borderColor: 'rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.05)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingDown size={14} className="text-warning" />
-                <span className="text-xs font-semibold tracking-widest text-warning">MISSES & GAPS</span>
-              </div>
-              {review.misses.map((miss, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <AlertCircle size={12} className="text-warning flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-text/90 leading-relaxed">{miss}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Goal updates */}
-          {review.goal_updates?.length > 0 && (
-            <div className="card">
-              <div className="flex items-center gap-2 mb-4">
-                <Target size={14} className="text-accent" />
-                <span className="text-xs font-semibold tracking-widest text-accent">GOAL PROGRESS</span>
-              </div>
-              <div className="space-y-4">
-                {review.goal_updates.map((goal, i) => {
-                  const color = getStatusColor(goal.status)
-                  return (
-                    <div key={i}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-text">{goal.title}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold" style={{ color }}>{goal.progress}%</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ color, background: color + '20' }}>
-                            {getStatusLabel(goal.status)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="h-1.5 bg-border rounded-full mb-1">
-                        <div className="h-full rounded-full" style={{ width: `${goal.progress}%`, background: color }} />
-                      </div>
-                      <p className="text-xs text-muted">{goal.assessment}</p>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Key decisions */}
-          {review.key_decisions?.length > 0 && (
-            <div className="card" style={{ borderColor: 'rgba(124,110,240,0.25)', background: 'rgba(124,110,240,0.05)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Zap size={14} className="text-accent2" />
-                <span className="text-xs font-semibold tracking-widest text-accent2">KEY DECISIONS THIS WEEK</span>
-              </div>
-              {review.key_decisions.map((d, i) => (
-                <div key={i} className="flex gap-2 mb-2">
-                  <span className="text-accent2 flex-shrink-0 text-sm">→</span>
-                  <span className="text-sm text-text/90 leading-relaxed">{d}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Patterns */}
-          <div className="card">
-            <div className="text-xs font-semibold tracking-widest text-muted mb-2">PATTERNS OBSERVED</div>
-            <p className="text-sm text-muted leading-relaxed italic">{review.patterns}</p>
-          </div>
-
-          {/* Next week focus */}
-          <div className="card" style={{ borderColor: 'rgba(201,169,110,0.3)', background: 'rgba(201,169,110,0.06)' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar size={14} className="text-accent" />
-              <span className="text-xs font-semibold tracking-widest text-accent">NEXT WEEK — FOCUS ON</span>
-            </div>
-            {review.next_week_focus.map((focus, i) => (
-              <div key={i} className="flex gap-3 mb-3">
-                <span className="font-display text-lg font-bold text-accent/40 w-5 flex-shrink-0">{i + 1}</span>
-                <span className="text-sm text-text leading-relaxed">{focus}</span>
-              </div>
-            ))}
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="text-xs font-semibold tracking-widest text-accent mb-2">WEEKLY CHALLENGE</div>
-              <p className="text-sm text-text font-medium">{review.challenge}</p>
-            </div>
-          </div>
-
-          {/* Closing */}
-          <div className="card text-center py-8">
-            <p className="text-base text-text font-medium italic leading-relaxed">"{review.closing}"</p>
-            <p className="text-xs text-muted mt-3">— Cervio</p>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Past reviews */}
-      {pastReviews.length > 0 && (
-        <div className="mt-10">
-          <h2 className="font-display text-xl font-bold text-text mb-4">Past Reviews</h2>
-          <div className="space-y-3">
-            {pastReviews.map(saved => {
-              const color = getScoreColor(saved.week_score)
-              const isExpanded = expandedPast === saved.id
-              return (
-                <div key={saved.id} className="card">
-                  <button
-                    onClick={() => setExpandedPast(isExpanded ? null : saved.id)}
-                    className="w-full flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="font-display text-2xl font-bold" style={{ color }}>{saved.week_score}</div>
-                      <div>
-                        <div className="text-sm font-medium text-text text-left">
-                          {new Date(saved.week_start).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })} — {new Date(saved.week_end).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                        <div className="text-xs px-2 py-0.5 rounded-full inline-block" style={{ color, background: color + '20' }}>
-                          {saved.content.week_label}
-                        </div>
-                      </div>
-                    </div>
-                    {isExpanded ? <ChevronUp size={16} className="text-muted" /> : <ChevronDown size={16} className="text-muted" />}
-                  </button>
-                  {isExpanded && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <p className="text-sm text-muted leading-relaxed mb-4">{saved.content.opening}</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-xs font-semibold text-success mb-2">WINS</div>
-                          {saved.content.wins?.map((w, i) => <p key={i} className="text-xs text-muted mb-1">✓ {w}</p>)}
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-warning mb-2">NEXT WEEK</div>
-                          {saved.content.next_week_focus?.map((f, i) => <p key={i} className="text-xs text-muted mb-1">→ {f}</p>)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
       )}
+
+      {tab === 'history' && (
+        savedReviews.length === 0
+          ? <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '40px 24px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>No saved reviews yet. Generate and save a review to build your history.</p>
+            </div>
+          : savedReviews.map(r => <PastReviewCard key={r.id} review={r} />)
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
