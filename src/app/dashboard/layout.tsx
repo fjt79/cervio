@@ -6,7 +6,7 @@ import { supabase, Profile } from '@/lib/supabase'
 import {
   LayoutDashboard, Zap, Calendar, Target, Sparkles,
   Settings, LogOut, Menu, X, ChevronRight, Star,
-  FileText, Users, MessageCircle, CalendarDays, TrendingUp
+  FileText, Users, MessageCircle, CalendarDays, TrendingUp, DollarSign
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AskCervioBar from '@/components/features/AskCervioBar'
@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/calendar', icon: Calendar, label: 'Calendar' },
   { href: '/dashboard/weekly-review', icon: Star, label: 'Weekly Review' },
   { href: '/dashboard/board-update', icon: FileText, label: 'Board Updates' },
+  { href: '/dashboard/financial-command', icon: DollarSign, label: 'Financial Command' },
   { href: '/dashboard/stakeholders', icon: Users, label: 'Stakeholders' },
 ]
 
