@@ -313,7 +313,7 @@ export default function SettingsPage() {
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 4 }}>Billing</h2>
         <div style={{ background: 'var(--surface)', borderRadius: 16, border: '0.5px solid var(--border)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: profile?.subscription_plan === 'trial' ? '0.5px solid var(--border)' : 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,149,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CreditCard size={15} style={{ color: 'var(--warning)' }} />
@@ -325,19 +325,49 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-            {profile?.subscription_plan === 'trial' ? (
-              <button onClick={handleUpgrade} style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 500 }}>
-                Upgrade →
-              </button>
-            ) : (
+            {profile?.subscription_plan !== 'trial' && (
               <button onClick={handleManageBilling} style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 500 }}>
                 Manage billing →
               </button>
             )}
           </div>
+
+          {profile?.subscription_plan === 'trial' && (
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { plan: 'solo', name: 'Solo', price: '$49 / month', desc: '1 user · All features · 100 interactions/month' },
+                { plan: 'pro',  name: 'Pro',  price: '$99 / month', desc: '1 user · Unlimited interactions · Priority AI' },
+                { plan: 'team', name: 'Team', price: '$299 / month', desc: 'Up to 5 users · Everything in Pro · Team features' },
+              ].map(tier => (
+                <div key={tier.plan} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface2)', borderRadius: 12, border: '0.5px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>{tier.name} <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>— {tier.price}</span></div>
+                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{tier.desc}</div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession()
+                        const res = await fetch('/api/billing/checkout', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                          body: JSON.stringify({ plan: tier.plan }),
+                        })
+                        const data = await res.json()
+                        if (!res.ok) throw new Error(data.error)
+                        window.location.href = data.url
+                      } catch (err: any) { toast.error(err.message || 'Failed to open billing') }
+                    }}
+                    style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' as const, marginLeft: 12, flexShrink: 0 }}
+                  >
+                    Upgrade →
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-
       {/* Data & Privacy */}
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingLeft: 4 }}>Data & Privacy</h2>
