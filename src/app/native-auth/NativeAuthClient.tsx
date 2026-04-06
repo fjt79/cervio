@@ -8,11 +8,16 @@ export default function NativeAuthClient() {
   const params = useSearchParams()
 
   useEffect(() => {
-    const token = params.get('token')
+    const token   = params.get('token')
+    const refresh = params.get('refresh')
     const redirect = params.get('redirect') || '/dashboard'
     if (!token) { router.replace('/auth/login'); return }
-    supabase.auth.setSession({ access_token: token, refresh_token: token })
-      .then(({ error }) => { router.replace(error ? '/auth/login' : redirect) })
+    const refreshToken = (refresh && refresh.length > 10) ? refresh : token
+    supabase.auth.setSession({ access_token: token, refresh_token: refreshToken })
+      .then(({ data, error }) => {
+        if (!error && data.session) { router.replace(redirect) }
+        else { supabase.auth.getUser(token).then(({ data: u }) => router.replace(u?.user ? redirect : '/auth/login')) }
+      })
   }, [params, router])
 
   return (
