@@ -25,7 +25,7 @@ export default function AuthPage() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
@@ -55,8 +55,6 @@ export default function AuthPage() {
   return (
     <>
       <style suppressHydrationWarning>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;400;500;600;700&display=swap');
-
         .auth-root {
           min-height: 100vh;
           display: flex; align-items: center; justify-content: center;
