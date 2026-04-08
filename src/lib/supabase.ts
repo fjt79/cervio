@@ -7,7 +7,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export const supabaseAdmin = createClient(
   supabaseUrl,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? supabaseAnonKey
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? supabaseAnonKey,
+  { auth: { storageKey: 'cervio-admin', persistSession: false, autoRefreshToken: false } }
 )
 
 export type Database = { public: { Tables: any } }
