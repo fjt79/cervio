@@ -19,8 +19,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleEmailAuth = async () => {
     setLoading(true)
 
     try {
@@ -113,7 +112,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
           </div>
 
           {/* Email form */}
-          <form onSubmit={handleEmailAuth} className="space-y-4">
+          <div className="space-y-4">
             {mode === 'signup' && (
               <div>
                 <label className="label">Full name</label>
@@ -170,7 +169,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
+            <button type="button" onClick={handleEmailAuth as any} disabled={loading} className="btn-primary w-full mt-2">
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="spinner" />
@@ -180,7 +179,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                 mode === 'signup' ? 'Create free account' : 'Sign in'
               )}
             </button>
-          </form>
+          </div>
 
           <p className="text-center text-sm text-muted mt-6">
             {mode === 'signup' ? (
