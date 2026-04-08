@@ -32,17 +32,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!session) { router.push('/auth/login'); return }
-      const user = session.user
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
       if (data) {
         if (!data.onboarding_completed) { router.push('/onboarding'); return }
         setProfile(data)
       }
-    }
-    init()
+    })
+    return () => subscription.unsubscribe()
   }, [router])
 
   const handleLogout = async () => {
