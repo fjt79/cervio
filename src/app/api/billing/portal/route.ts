@@ -1,6 +1,6 @@
 // Billing portal
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from "@/lib/supabase-admin"
 import { createBillingPortalSession } from '@/lib/stripe'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
