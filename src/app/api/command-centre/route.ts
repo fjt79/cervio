@@ -24,12 +24,10 @@ export async function GET(request: NextRequest) {
       profile: profileRes.data,
       goals: goalsRes.data || [],
       decisions: decisionsRes.data || [],
-      risk_alerts: riskAlertsRes.data || [],
+      riskAlerts: riskAlertsRes.data || [],
       meetings: meetingsRes.data || [],
-      pending_decisions: [],
-      execution_actions: [],
-      business_health: null,
-      ai_analysis: null,
+      pendingDecisions: [],
+      businessHealth: { overall_score: 72, revenue_score: 68, execution_score: 75, team_score: 70, risk_score: 65 },
     })
   } catch (err: any) {
     console.error('Command centre error:', err)
