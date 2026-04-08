@@ -38,7 +38,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
       }
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong')
