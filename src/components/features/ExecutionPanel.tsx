@@ -256,7 +256,7 @@ export default function ExecutionPanel({ decision, onClose, onComplete, executio
 
   return (
     <>
-      <style>{`
+      <style suppressHydrationWarning>{`
         @keyframes execProgress { 0%{width:0%} 50%{width:70%} 100%{width:100%} }
         @keyframes spin { to{transform:rotate(360deg)} }
         @keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }

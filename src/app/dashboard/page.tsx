@@ -1736,7 +1736,7 @@ export default function CommandCentrePage() {
 
       <AICervioPanel decisions={pendingDecisions} analysing={analysing} onAnalyse={runAnalysis} />
 
-      <style>{`
+      <style suppressHydrationWarning>{`
         @keyframes dashPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.65)} }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>

@@ -134,7 +134,7 @@ export default function AskCervioPage() {
         <p style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' as const, marginTop: 8 }}>Enter to send · Shift+Enter for new line</p>
       </div>
 
-      <style>{`@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }`}</style>
+      <style suppressHydrationWarning>{`@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }`}</style>
     </div>
   )
 }

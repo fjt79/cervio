@@ -221,7 +221,7 @@ export default function WeeklyReviewPage() {
           : savedReviews.map(r => <PastReviewCard key={r.id} review={r} />)
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style suppressHydrationWarning>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

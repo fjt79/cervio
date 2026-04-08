@@ -205,7 +205,7 @@ export default function CoachPage() {
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes dashPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+      <style suppressHydrationWarning>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes dashPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
     </div>
   )
 }

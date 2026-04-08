@@ -90,7 +90,7 @@ export default function OnboardingPage() {
 
   return (
     <>
-      <style>{`
+      <style suppressHydrationWarning>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;400;500;600;700;800&display=swap');
         .ob-inp:focus { border-color: rgba(29,78,216,0.6) !important; box-shadow: 0 0 0 3px rgba(29,78,216,0.12); }
         .ob-inp::placeholder { color: rgba(240,239,233,0.22); }
