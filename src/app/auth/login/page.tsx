@@ -25,7 +25,7 @@ export default function AuthPage() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-        window.location.href = '/dashboard'
+        setTimeout(() => { window.location.href = '/dashboard' }, 500)
       } else {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
