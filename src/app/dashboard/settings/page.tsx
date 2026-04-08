@@ -325,7 +325,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-            {profile?.subscription_plan !== 'trial' && (
+            {true && (
               <button onClick={handleManageBilling} style={{ fontSize: 13, color: 'var(--accent)', background: 'var(--accent-light)', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontWeight: 500 }}>
                 Manage billing →
               </button>

@@ -1,14 +1,14 @@
-// Billing portal
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { createBillingPortalSession } from '@/lib/stripe'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { user } } = await supabase.auth.getUser()
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
     if (!user) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
     const { data: profile } = await supabaseAdmin
@@ -18,10 +18,10 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!profile?.stripe_customer_id) {
-      return NextResponse.json({ error: 'No billing account found' }, { status: 404 })
+      return NextResponse.json({ error: 'No billing account found. Please contact support.' }, { status: 404 })
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cervio.ai'
     const session = await createBillingPortalSession(profile.stripe_customer_id, appUrl)
 
     return NextResponse.json({ url: session.url })
