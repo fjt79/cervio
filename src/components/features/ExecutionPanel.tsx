@@ -369,7 +369,7 @@ export default function ExecutionPanel({ decision, onClose, onComplete, executio
                     ))}
                   </div>
                   {(!connected.calendar || !connected.slack) && (
-                    <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>Disconnected systems will be simulated. <span style={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Connect in Settings →</span></p>
+                    <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>Disconnected systems will be simulated. <span style={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Integrations coming soon</span></p>
                   )}
                 </div>
               </>
